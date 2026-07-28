@@ -2,261 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Cadence — running metronome</title>
+<title>Cadence, a running metronome</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>
-  :root {
-    --ground: #F4F5F7;
-    --surface: #FFFFFF;
-    --surface-2: #EAECEF;
-    --ink: #16181D;
-    --ink-soft: #5B6270;
-    --line: #D8DBE0;
-    --accent: #D94A00;
-    --accent-ink: #FFFFFF;
-    --good: #1B8A4C;
-    --warn: #B07A00;
-    --ring: #C9CDD3;
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground: #0F1114;
-      --surface: #1A1D22;
-      --surface-2: #22262C;
-      --ink: #EDEFF2;
-      --ink-soft: #9AA1AC;
-      --line: #2C3138;
-      --accent: #FF6A2B;
-      --accent-ink: #16181D;
-      --good: #3FBF77;
-      --warn: #E0A526;
-      --ring: #33383F;
-    }
-  }
-  :root[data-theme="light"] {
-    --ground: #F4F5F7; --surface: #FFFFFF; --surface-2: #EAECEF;
-    --ink: #16181D; --ink-soft: #5B6270; --line: #D8DBE0;
-    --accent: #D94A00; --accent-ink: #FFFFFF;
-    --good: #1B8A4C; --warn: #B07A00; --ring: #C9CDD3;
-  }
-  :root[data-theme="dark"] {
-    --ground: #0F1114; --surface: #1A1D22; --surface-2: #22262C;
-    --ink: #EDEFF2; --ink-soft: #9AA1AC; --line: #2C3138;
-    --accent: #FF6A2B; --accent-ink: #16181D;
-    --good: #3FBF77; --warn: #E0A526; --ring: #33383F;
-  }
-
-  html, body { background: var(--ground); color: var(--ink); }
-  body {
-    font-family: var(--sans);
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .wrap {
-    max-width: 26rem;
-    margin: 0 auto;
-    padding: 1.25rem 1.25rem 3rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  header { display: flex; align-items: baseline; justify-content: space-between; }
-  .wordmark {
-    font-family: var(--mono);
-    font-weight: 700;
-    font-size: 0.95rem;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-  }
-  .wordmark b { color: var(--accent); font-weight: 700; }
-  .tag {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    color: var(--ink-soft);
-  }
-
-  /* ---- hero: numeral in a beat ring ---- */
-  .hero { display: grid; place-items: center; padding: 0.5rem 0; }
-  .beat-ring {
-    width: min(72vw, 17rem);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    border: 3px solid var(--ring);
-    display: grid;
-    place-items: center;
-    position: relative;
-    transition: border-color 260ms ease-out, transform 260ms ease-out, box-shadow 260ms ease-out;
-  }
-  .beat-ring.tick {
-    border-color: var(--accent);
-    transform: scale(1.035);
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
-    transition: none;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .beat-ring, .beat-ring.tick { transform: none; box-shadow: none; }
-  }
-  .bpm-stack { display: grid; justify-items: center; gap: 0.1rem; }
-  .bpm {
-    font-size: clamp(4.5rem, 24vw, 6.5rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .bpm-unit {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-
-  /* ---- tempo controls ---- */
-  .tempo-row { display: flex; align-items: center; gap: 0.75rem; }
-  .step {
-    flex: 0 0 3.25rem;
-    height: 3.25rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink);
-    font-size: 1.5rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .step:active { background: var(--surface-2); }
-  /* min-width:0 lets the slider shrink below its intrinsic width so the row
-     fits on 320px-wide phones instead of pushing the button off-screen. */
-  input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); height: 3.25rem; }
-
-  .presets { display: flex; gap: 0.5rem; }
-  .chip {
-    flex: 1;
-    padding: 0.6rem 0;
-    border-radius: 0.6rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink);
-    font-family: var(--mono);
-    font-size: 0.9rem;
-    font-variant-numeric: tabular-nums;
-    cursor: pointer;
-  }
-  .chip[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-  }
-
-  /* ---- mode toggles ---- */
-  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .mode {
-    display: grid;
-    gap: 0.15rem;
-    justify-items: start;
-    padding: 0.75rem 0.9rem;
-    border-radius: 0.75rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink);
-    text-align: left;
-    cursor: pointer;
-  }
-  .mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-  .mode:disabled { opacity: 0.45; cursor: not-allowed; }
-  .mode .m-name { font-weight: 650; font-size: 0.95rem; }
-  .mode .m-state {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-  .mode[aria-pressed="true"] .m-state { color: var(--accent); }
-
-  .vol-row { display: flex; align-items: center; gap: 0.75rem; }
-  .vol-row label {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    flex: 0 0 auto;
-  }
-  .test-btn { flex: 0 0 auto; padding: 0.55rem 1rem; }
-  .ovr { width: 100%; margin: 0.6rem 0 0.75rem; font-size: 0.78rem; }
-
-  /* ---- start ---- */
-  .go {
-    width: 100%;
-    padding: 1.1rem 0;
-    border-radius: 1rem;
-    border: none;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-size: 1.25rem;
-    font-weight: 750;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-  }
-  .go[data-running="true"] { background: var(--ink); color: var(--ground); }
-  .go:active { filter: brightness(0.92); }
-
-  /* ---- status ---- */
-  .status {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    border-radius: 0.9rem;
-    padding: 0.4rem 1rem;
-  }
-  .status h2 {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    padding: 0.6rem 0 0.2rem;
-    font-weight: 600;
-  }
-  .st {
-    display: flex;
-    gap: 0.6rem;
-    align-items: baseline;
-    padding: 0.55rem 0;
-    border-top: 1px solid var(--line);
-    font-size: 0.85rem;
-    line-height: 1.45;
-  }
-  .st:first-of-type { border-top: none; }
-  .dot {
-    flex: 0 0 0.55rem;
-    width: 0.55rem;
-    height: 0.55rem;
-    border-radius: 50%;
-    background: var(--ink-soft);
-    transform: translateY(-0.05rem);
-  }
-  .dot[data-ok="yes"] { background: var(--good); }
-  .dot[data-ok="warn"] { background: var(--warn); }
-  .st b { font-weight: 650; }
-  .st .sub { color: var(--ink-soft); display: block; }
-
-  .footnote {
-    font-size: 0.8rem;
-    line-height: 1.55;
-    color: var(--ink-soft);
-    padding: 0 0.25rem;
-  }
-  .footnote b { color: var(--ink); font-weight: 600; }
-</style>
+<meta name="description" content="A running metronome that keeps time over your music and carries on with the screen off.">
+<link rel="stylesheet" href="styles.css">
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -266,395 +15,119 @@
 <meta name="theme-color" content="#0F1114">
 </head>
 <body>
-<div class="wrap">
-  <header>
+<div class="app">
+  <header class="topbar">
     <div class="wordmark">CA<b>DEN</b>CE</div>
-    <div class="tag">runs over your music</div>
+    <button class="ghost" id="statusToggle" aria-expanded="false" aria-controls="statusPanel">Status</button>
   </header>
 
-  <div class="hero">
-    <div class="beat-ring" id="ring">
-      <div class="bpm-stack">
-        <div class="bpm" id="bpmOut">180</div>
-        <div class="bpm-unit">steps / min</div>
+  <main id="main">
+    <section class="hero" aria-labelledby="heroLabel">
+      <h1 id="heroLabel" class="sr-only">Cadence, a running metronome</h1>
+      <div class="ring" id="ring" aria-hidden="true">
+        <div class="beats" id="beats"></div>
+        <div class="readout">
+          <div class="bpm" id="bpmOut">180</div>
+          <div class="unit">steps per minute</div>
+        </div>
       </div>
-    </div>
-  </div>
+      <p class="session" id="session" hidden>
+        <span id="elapsed">0:00</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span id="steps">0 steps</span>
+      </p>
+      <p class="live sr-only" id="live" role="status" aria-live="polite"></p>
+    </section>
 
-  <div class="tempo-row">
-    <button class="step" id="dec" aria-label="Slower by one">−</button>
-    <input type="range" id="slider" min="120" max="200" step="1" value="180" aria-label="Steps per minute">
-    <button class="step" id="inc" aria-label="Faster by one">+</button>
-  </div>
+    <section class="tempo" aria-label="Cadence">
+      <button class="step" id="dec" aria-label="One step per minute slower">&minus;</button>
+      <input type="range" id="slider" min="100" max="220" step="1" value="180" aria-label="Steps per minute">
+      <button class="step" id="inc" aria-label="One step per minute faster">+</button>
+    </section>
 
-  <div class="presets" id="presets">
-    <button class="chip" data-bpm="160" aria-pressed="false">160</button>
-    <button class="chip" data-bpm="170" aria-pressed="false">170</button>
-    <button class="chip" data-bpm="175" aria-pressed="false">175</button>
-    <button class="chip" data-bpm="180" aria-pressed="true">180</button>
-    <button class="chip" data-bpm="185" aria-pressed="false">185</button>
-    <button class="chip" data-bpm="190" aria-pressed="false">190</button>
-  </div>
-
-  <div class="modes">
-    <button class="mode" id="soundMode" aria-pressed="true">
-      <span class="m-name">Click</span>
-      <span class="m-state" id="soundState">On</span>
+    <button class="tap" id="tap">
+      <span class="tap-label">Tap your stride</span>
+      <span class="tap-hint" id="tapHint">Tap along as you run to read your cadence</span>
     </button>
-    <button class="mode" id="vibeMode" aria-pressed="false">
-      <span class="m-name">Vibrate</span>
-      <span class="m-state" id="vibeState">Off</span>
-    </button>
+
+    <section class="panel" aria-labelledby="presetsLabel">
+      <h2 id="presetsLabel">Presets</h2>
+      <div class="presets" id="presets" role="radiogroup" aria-labelledby="presetsLabel"></div>
+      <p class="hint" id="presetHint"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="soundLabel">
+      <h2 id="soundLabel">Sound</h2>
+      <div class="voices" id="voices" role="radiogroup" aria-labelledby="soundLabel"></div>
+      <p class="hint" id="voiceHint"></p>
+      <div class="row">
+        <label for="volume">Volume</label>
+        <input type="range" id="volume" min="0" max="100" step="1" value="70" aria-label="Sound volume">
+        <output class="value" id="volumeValue" for="volume">70</output>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="accentLabel">
+      <h2 id="accentLabel">Accent</h2>
+      <div class="accents" id="accents" role="radiogroup" aria-labelledby="accentLabel"></div>
+      <p class="hint" id="accentHint"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="outputLabel">
+      <h2 id="outputLabel">Output</h2>
+      <div class="switches" id="switches"></div>
+      <p class="hint">One output always stays on, so there is never a run with nothing to follow.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="rampLabel">
+      <h2 id="rampLabel">Cadence ramp</h2>
+      <p class="hint">
+        Start where you run now and climb to the target across the run. Adding a
+        few steps per minute at a time sticks better than jumping to the number.
+      </p>
+      <div class="switches" id="rampSwitch"></div>
+      <div class="ramp-fields" id="rampFields">
+        <div class="row">
+          <label for="rampTo">Target</label>
+          <input type="range" id="rampTo" min="100" max="220" step="1" value="180" aria-label="Ramp target cadence">
+          <output class="value" id="rampToValue" for="rampTo">180</output>
+        </div>
+        <div class="row">
+          <label for="rampMinutes">Over</label>
+          <input type="range" id="rampMinutes" min="1" max="60" step="1" value="10" aria-label="Ramp length in minutes">
+          <output class="value" id="rampMinutesValue" for="rampMinutes">10 min</output>
+        </div>
+        <div class="ramp-progress" id="rampProgress" hidden>
+          <div class="track"><div class="fill" id="rampFill"></div></div>
+          <p class="hint" id="rampStatus"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel status" id="statusPanel" aria-labelledby="statusLabel" hidden>
+      <h2 id="statusLabel">Status</h2>
+      <ul class="checks" id="checks"></ul>
+      <p class="hint">
+        Closing the app entirely stops the beat. No web app can keep making
+        sound once it is closed, only while it is running in the background.
+      </p>
+    </section>
+  </main>
+
+  <div class="dock">
+    <button class="go" id="go" data-running="false">Start</button>
   </div>
-
-  <div class="vol-row" id="volRow">
-    <label for="vol">Click vol</label>
-    <input type="range" id="vol" min="0" max="100" value="70" aria-label="Click volume">
-    <button class="chip test-btn" id="testClick">Test</button>
-  </div>
-
-  <button class="go" id="go" data-running="false">Start</button>
-
-  <div class="status">
-    <h2>Will it pause your music?</h2>
-    <div class="st">
-      <span class="dot" id="mixDot"></span>
-      <span id="mixText"><b>Checking…</b></span>
-    </div>
-    <div class="st">
-      <span class="dot" id="engineDot"></span>
-      <span id="engineText"><b>Audio engine idle</b><span class="sub">Tap Start or Test and its live state shows here.</span></span>
-    </div>
-    <div class="st">
-      <span class="dot" id="vibeDot"></span>
-      <span id="vibeText"><b>Checking vibration…</b></span>
-    </div>
-    <div class="st">
-      <span class="dot" id="wakeDot"></span>
-      <span id="wakeText"><b>Screen wake lock</b><span class="sub">Requested on start so the ticking survives your run. If the screen locks, the browser suspends the page and the beat stops.</span></span>
-    </div>
-    <button class="chip ovr" id="ovrBtn" aria-pressed="false" hidden>Override Silent mode — pauses music</button>
-  </div>
-
-  <p class="footnote">
-    <b>The test:</b> start music in Spotify first, then hit Start here. If the music keeps
-    playing under the clicks, you're set. If it pauses or ducks (common on Android),
-    switch to <b>Vibrate</b> — it never touches the audio system.
-  </p>
 </div>
 
+<script type="module" src="src/main.js"></script>
 <script>
-(function () {
-  'use strict';
-
-  // --- iOS: ask to mix with other audio instead of interrupting it.
-  // Must be set before playback begins; Safari is currently the only engine
-  // implementing the Audio Session API.
-  var canMix = false;
-  // 'ambient' mixes with other audio but is MUTED by the iPhone Silent switch;
-  // 'playback' ignores the switch but pauses other audio. User can override below.
-  var sessionType = 'ambient';
-  function applySession() {
-    if (!('audioSession' in navigator)) return;
-    try { navigator.audioSession.type = sessionType; canMix = true; } catch (e) {}
-  }
-  applySession();
-
-  var canVibe = ('vibrate' in navigator);
-
-  // --- state ---
-  var bpm = parseInt(localStorage.getItem('cadence.bpm') || '180', 10);
-  var soundOn = localStorage.getItem('cadence.sound') !== 'off';
-  var vibeOn = localStorage.getItem('cadence.vibe') === 'on';
-  var volume = parseInt(localStorage.getItem('cadence.vol') || '70', 10);
-  if (!canVibe) vibeOn = false;
-  if (!soundOn && !vibeOn) soundOn = true;
-
-  var running = false;
-  var ctx = null, master = null;
-  // Beat grid: beat n falls at gridAnchor + n * (60 / bpm) on the audio clock.
-  // Computed from the anchor (not accumulated) so float error never drifts.
-  var gridAnchor = 0, beatN = 0;
-  var pump = null, pumpTimer = null;
-  var pendingFlashes = [];
-  var rafOn = false;
-  var wakeLock = null;
-
-  // --- elements ---
-  var $ = function (id) { return document.getElementById(id); };
-  var ring = $('ring'), bpmOut = $('bpmOut'), slider = $('slider');
-  var go = $('go'), soundMode = $('soundMode'), vibeMode = $('vibeMode');
-
-  // --- tempo UI ---
-  function setBpm(v) {
-    var next = Math.min(200, Math.max(120, v | 0));
-    if (next !== bpm && running && ctx) {
-      // Re-anchor the grid at the next unscheduled beat so the tempo change
-      // is seamless and the new spacing is exact from that beat on.
-      gridAnchor = gridTime(beatN);
-      beatN = 0;
-    }
-    bpm = next;
-    bpmOut.textContent = bpm;
-    slider.value = bpm;
-    var chips = document.querySelectorAll('#presets .chip');
-    for (var i = 0; i < chips.length; i++) {
-      chips[i].setAttribute('aria-pressed', String(parseInt(chips[i].dataset.bpm, 10) === bpm));
-    }
-    localStorage.setItem('cadence.bpm', String(bpm));
-  }
-  slider.addEventListener('input', function () { setBpm(parseInt(slider.value, 10)); });
-  $('dec').addEventListener('click', function () { setBpm(bpm - 1); });
-  $('inc').addEventListener('click', function () { setBpm(bpm + 1); });
-  $('presets').addEventListener('click', function (e) {
-    var b = e.target.closest('.chip');
-    if (b) setBpm(parseInt(b.dataset.bpm, 10));
-  });
-  setBpm(bpm);
-
-  // --- mode toggles ---
-  function paintModes() {
-    soundMode.setAttribute('aria-pressed', String(soundOn));
-    $('soundState').textContent = soundOn ? 'On' : 'Off';
-    vibeMode.setAttribute('aria-pressed', String(vibeOn));
-    $('vibeState').textContent = canVibe ? (vibeOn ? 'On' : 'Off') : 'Unavailable';
-    $('volRow').style.opacity = soundOn ? '1' : '0.4';
-    localStorage.setItem('cadence.sound', soundOn ? 'on' : 'off');
-    localStorage.setItem('cadence.vibe', vibeOn ? 'on' : 'off');
-  }
-  soundMode.addEventListener('click', function () {
-    if (soundOn && !vibeOn) return; // never leave both off
-    soundOn = !soundOn; paintModes();
-  });
-  vibeMode.addEventListener('click', function () {
-    if (!canVibe) return;
-    if (vibeOn && !soundOn) return;
-    vibeOn = !vibeOn; paintModes();
-  });
-  if (!canVibe) vibeMode.disabled = true;
-  paintModes();
-
-  var vol = $('vol');
-  vol.value = volume;
-  vol.addEventListener('input', function () {
-    volume = parseInt(vol.value, 10);
-    if (master) master.gain.value = volume / 100;
-    localStorage.setItem('cadence.vol', String(volume));
-  });
-
-  // --- audio engine: lookahead scheduler for rock-solid timing ---
-  var LOOKAHEAD_MS = 25, HORIZON_S = 0.2;
-  // If the pump stalls longer than this past a beat, skip to the next grid
-  // slot instead of machine-gunning the missed clicks.
-  var CATCHUP_S = 0.05;
-
-  function gridTime(n) { return gridAnchor + n * (60 / bpm); }
-
-  function ensureCtx() {
-    if (!ctx) {
-      applySession();
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain();
-      master.gain.value = volume / 100;
-      master.connect(ctx.destination);
-      ctx.onstatechange = paintEngine;
-    }
-    // iOS can report 'suspended' OR the non-standard 'interrupted' (e.g. while
-    // another app holds the audio session) — resume unconditionally.
-    if (ctx.state !== 'running') ctx.resume().then(paintEngine, paintEngine);
-    paintEngine();
-  }
-
-  function paintEngine() {
-    if (!ctx) return;
-    if (ctx.state === 'running') {
-      setStatus('engineDot', 'yes');
-      $('engineText').innerHTML = '<b>Audio engine running</b><span class="sub">Clicks are being produced. If you hear nothing: on iPhone the Silent switch mutes ambient web audio (Spotify is exempt — this page isn’t). Flip the ringer on, then raise the side volume.</span>';
-    } else {
-      setStatus('engineDot', 'warn');
-      $('engineText').innerHTML = '<b>Audio engine ' + ctx.state + '</b><span class="sub">iOS paused or blocked the audio context. Tap Start again with this page in the foreground, in Safari itself rather than an in-app browser.</span>';
-    }
-  }
-
-  function click(t) {
-    var osc = ctx.createOscillator();
-    var env = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(1250, t);
-    osc.frequency.exponentialRampToValueAtTime(850, t + 0.02);
-    env.gain.setValueAtTime(1, t);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
-    osc.connect(env).connect(master);
-    osc.start(t);
-    osc.stop(t + 0.06);
-  }
-
-  function scheduleVibe(t) {
-    var delay = Math.max(0, (t - ctx.currentTime) * 1000);
-    setTimeout(function () { if (running && vibeOn) navigator.vibrate(45); }, delay);
-  }
-
-  function tickScheduler() {
-    if (!running || !ctx) return;
-    var now = ctx.currentTime;
-    if (gridTime(beatN) < now - CATCHUP_S) {
-      beatN += Math.ceil((now - gridTime(beatN)) / (60 / bpm));
-    }
-    while (gridTime(beatN) < now + HORIZON_S) {
-      var t = gridTime(beatN);
-      if (soundOn) click(t);
-      if (vibeOn && canVibe) scheduleVibe(t);
-      pendingFlashes.push(t);
-      beatN++;
-    }
-  }
-
-  // The pump only has to fire often enough to keep the horizon full; the
-  // clicks themselves are placed on the audio clock, sample-accurately.
-  // A Worker timer keeps pumping through main-thread jank and the timer
-  // throttling some browsers apply to backgrounded pages.
-  function startPump() {
-    stopPump();
-    if (!pump && window.Worker && window.Blob && window.URL) {
-      try {
-        var src = 'var id=null;onmessage=function(e){clearInterval(id);id=null;' +
-                  'if(e.data>0)id=setInterval(function(){postMessage(0)},e.data)}';
-        var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
-        pump = new Worker(url);
-        URL.revokeObjectURL(url);
-        pump.onmessage = tickScheduler;
-      } catch (e) { pump = null; }
-    }
-    if (pump) pump.postMessage(LOOKAHEAD_MS);
-    else pumpTimer = setInterval(tickScheduler, LOOKAHEAD_MS);
-  }
-  function stopPump() {
-    if (pump) pump.postMessage(0);
-    if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = null; }
-  }
-
-  // --- visual pulse, driven off the audio clock ---
-  function startRaf() {
-    if (rafOn) return;
-    rafOn = true;
-    requestAnimationFrame(raf);
-  }
-  function raf() {
-    if (!running) { rafOn = false; return; }
-    var now = ctx.currentTime;
-    while (pendingFlashes.length && pendingFlashes[0] <= now) {
-      pendingFlashes.shift();
-      ring.classList.remove('tick');
-      void ring.offsetWidth; // restart the CSS transition
-      ring.classList.add('tick');
-      setTimeout(function () { ring.classList.remove('tick'); }, 90);
-    }
-    requestAnimationFrame(raf);
-  }
-
-  // --- wake lock ---
-  function grabWakeLock() {
-    if (!('wakeLock' in navigator)) {
-      setStatus('wakeDot', 'warn');
-      $('wakeText').innerHTML = '<b>No wake lock on this browser</b><span class="sub">Set your phone’s auto-lock to Never for the run, or the beat will stop when the screen sleeps.</span>';
-      return;
-    }
-    navigator.wakeLock.request('screen').then(function (lock) {
-      wakeLock = lock;
-      setStatus('wakeDot', 'yes');
-      $('wakeText').innerHTML = '<b>Screen staying awake</b><span class="sub">Released when you stop. Keep the page in the foreground.</span>';
-      lock.addEventListener('release', function () {
-        if (running) setStatus('wakeDot', 'warn');
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {
+        // Offline install is a bonus, not a requirement for the app to run.
       });
-    }).catch(function () { setStatus('wakeDot', 'warn'); });
+    });
   }
-  function dropWakeLock() {
-    if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
-    setStatus('wakeDot', '');
-  }
-
-  // --- start / stop ---
-  function start() {
-    ensureCtx();
-    running = true;
-    gridAnchor = ctx.currentTime + 0.08;
-    beatN = 0;
-    pendingFlashes = [];
-    tickScheduler();
-    startPump();
-    startRaf();
-    grabWakeLock();
-    go.dataset.running = 'true';
-    go.textContent = 'Stop';
-  }
-  function stop() {
-    running = false;
-    stopPump();
-    pendingFlashes = [];
-    if (canVibe) navigator.vibrate(0);
-    dropWakeLock();
-    go.dataset.running = 'false';
-    go.textContent = 'Start';
-  }
-  go.addEventListener('click', function () { running ? stop() : start(); });
-
-  // Re-arm after the phone screen was toggled or another app interrupted us.
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible' && running) {
-      applySession();
-      if (ctx && ctx.state === 'suspended') ctx.resume();
-      tickScheduler(); // catch-up logic realigns the grid after the gap
-      grabWakeLock();
-      startRaf();
-    }
-  });
-
-  // --- capability report ---
-  function setStatus(id, ok) {
-    $(id).dataset.ok = ok;
-  }
-  var ovrBtn = $('ovrBtn');
-  function paintMix() {
-    if (!canMix) {
-      setStatus('mixDot', 'warn');
-      $('mixText').innerHTML = '<b>No mix control in this browser</b><span class="sub">Clicks may duck or pause your music — run the test below. On iPhone, Safari supports mixing.</span>';
-      return;
-    }
-    ovrBtn.hidden = false;
-    if (sessionType === 'ambient') {
-      setStatus('mixDot', 'yes');
-      $('mixText').innerHTML = '<b>Mixing enabled (ambient audio)</b><span class="sub">Clicks layer over Spotify instead of pausing it. The trade-off: the Silent switch mutes them, so your ringer must be on.</span>';
-    } else {
-      setStatus('mixDot', 'warn');
-      $('mixText').innerHTML = '<b>Playback mode — override active</b><span class="sub">Sound now ignores the Silent switch but pauses other audio. Use this only to confirm the clicks themselves work.</span>';
-    }
-  }
-  paintMix();
-
-  ovrBtn.addEventListener('click', function () {
-    var wasOn = ovrBtn.getAttribute('aria-pressed') === 'true';
-    sessionType = wasOn ? 'ambient' : 'playback';
-    ovrBtn.setAttribute('aria-pressed', String(!wasOn));
-    ovrBtn.textContent = wasOn ? 'Override Silent mode — pauses music' : 'Silent-mode override ON — tap to go back to mixing';
-    applySession();
-    paintMix();
-  });
-
-  $('testClick').addEventListener('click', function () {
-    ensureCtx();
-    click(ctx.currentTime + 0.05);
-  });
-  if (canVibe) {
-    setStatus('vibeDot', 'yes');
-    $('vibeText').innerHTML = '<b>Vibration available</b><span class="sub">A pulse per step, zero interference with audio.</span>';
-  } else {
-    setStatus('vibeDot', 'warn');
-    $('vibeText').innerHTML = '<b>No vibration API</b><span class="sub">iPhones don’t expose it to the browser — use the click instead.</span>';
-  }
-})();
-</script>
-<script>
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
 </script>
 </body>
 </html>
