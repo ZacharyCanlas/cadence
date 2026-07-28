@@ -1,5 +1,5 @@
 // Bump the version string on every deploy so phones drop the stale copy.
-var CACHE = 'cadence-v1';
+var CACHE = 'cadence-v2';
 var ASSETS = ['.', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {

@@ -132,7 +132,9 @@
     cursor: pointer;
   }
   .step:active { background: var(--surface-2); }
-  input[type="range"] { flex: 1; accent-color: var(--accent); height: 3.25rem; }
+  /* min-width:0 lets the slider shrink below its intrinsic width so the row
+     fits on 320px-wide phones instead of pushing the button off-screen. */
+  input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); height: 3.25rem; }
 
   .presets { display: flex; gap: 0.5rem; }
   .chip {
@@ -255,6 +257,7 @@
   }
   .footnote b { color: var(--ink); font-weight: 600; }
 </style>
+<link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -272,7 +275,7 @@
   <div class="hero">
     <div class="beat-ring" id="ring">
       <div class="bpm-stack">
-        <div class="bpm" id="bpmOut">172</div>
+        <div class="bpm" id="bpmOut">180</div>
         <div class="bpm-unit">steps / min</div>
       </div>
     </div>
@@ -280,16 +283,17 @@
 
   <div class="tempo-row">
     <button class="step" id="dec" aria-label="Slower by one">−</button>
-    <input type="range" id="slider" min="120" max="200" step="1" value="172" aria-label="Steps per minute">
+    <input type="range" id="slider" min="120" max="200" step="1" value="180" aria-label="Steps per minute">
     <button class="step" id="inc" aria-label="Faster by one">+</button>
   </div>
 
   <div class="presets" id="presets">
     <button class="chip" data-bpm="160" aria-pressed="false">160</button>
-    <button class="chip" data-bpm="166" aria-pressed="false">166</button>
-    <button class="chip" data-bpm="172" aria-pressed="true">172</button>
-    <button class="chip" data-bpm="178" aria-pressed="false">178</button>
-    <button class="chip" data-bpm="184" aria-pressed="false">184</button>
+    <button class="chip" data-bpm="170" aria-pressed="false">170</button>
+    <button class="chip" data-bpm="175" aria-pressed="false">175</button>
+    <button class="chip" data-bpm="180" aria-pressed="true">180</button>
+    <button class="chip" data-bpm="185" aria-pressed="false">185</button>
+    <button class="chip" data-bpm="190" aria-pressed="false">190</button>
   </div>
 
   <div class="modes">
@@ -359,7 +363,7 @@
   var canVibe = ('vibrate' in navigator);
 
   // --- state ---
-  var bpm = parseInt(localStorage.getItem('cadence.bpm') || '172', 10);
+  var bpm = parseInt(localStorage.getItem('cadence.bpm') || '180', 10);
   var soundOn = localStorage.getItem('cadence.sound') !== 'off';
   var vibeOn = localStorage.getItem('cadence.vibe') === 'on';
   var volume = parseInt(localStorage.getItem('cadence.vol') || '70', 10);
@@ -368,9 +372,12 @@
 
   var running = false;
   var ctx = null, master = null;
-  var nextBeat = 0;
-  var timer = null;
+  // Beat grid: beat n falls at gridAnchor + n * (60 / bpm) on the audio clock.
+  // Computed from the anchor (not accumulated) so float error never drifts.
+  var gridAnchor = 0, beatN = 0;
+  var pump = null, pumpTimer = null;
   var pendingFlashes = [];
+  var rafOn = false;
   var wakeLock = null;
 
   // --- elements ---
@@ -380,10 +387,17 @@
 
   // --- tempo UI ---
   function setBpm(v) {
-    bpm = Math.min(200, Math.max(120, v | 0));
+    var next = Math.min(200, Math.max(120, v | 0));
+    if (next !== bpm && running && ctx) {
+      // Re-anchor the grid at the next unscheduled beat so the tempo change
+      // is seamless and the new spacing is exact from that beat on.
+      gridAnchor = gridTime(beatN);
+      beatN = 0;
+    }
+    bpm = next;
     bpmOut.textContent = bpm;
     slider.value = bpm;
-    var chips = document.querySelectorAll('.chip');
+    var chips = document.querySelectorAll('#presets .chip');
     for (var i = 0; i < chips.length; i++) {
       chips[i].setAttribute('aria-pressed', String(parseInt(chips[i].dataset.bpm, 10) === bpm));
     }
@@ -429,7 +443,12 @@
   });
 
   // --- audio engine: lookahead scheduler for rock-solid timing ---
-  var LOOKAHEAD_MS = 25, HORIZON_S = 0.12;
+  var LOOKAHEAD_MS = 25, HORIZON_S = 0.2;
+  // If the pump stalls longer than this past a beat, skip to the next grid
+  // slot instead of machine-gunning the missed clicks.
+  var CATCHUP_S = 0.05;
+
+  function gridTime(n) { return gridAnchor + n * (60 / bpm); }
 
   function ensureCtx() {
     if (!ctx) {
@@ -476,17 +495,52 @@
   }
 
   function tickScheduler() {
-    while (nextBeat < ctx.currentTime + HORIZON_S) {
-      if (soundOn) click(nextBeat);
-      if (vibeOn && canVibe) scheduleVibe(nextBeat);
-      pendingFlashes.push(nextBeat);
-      nextBeat += 60 / bpm;
+    if (!running || !ctx) return;
+    var now = ctx.currentTime;
+    if (gridTime(beatN) < now - CATCHUP_S) {
+      beatN += Math.ceil((now - gridTime(beatN)) / (60 / bpm));
+    }
+    while (gridTime(beatN) < now + HORIZON_S) {
+      var t = gridTime(beatN);
+      if (soundOn) click(t);
+      if (vibeOn && canVibe) scheduleVibe(t);
+      pendingFlashes.push(t);
+      beatN++;
     }
   }
 
+  // The pump only has to fire often enough to keep the horizon full; the
+  // clicks themselves are placed on the audio clock, sample-accurately.
+  // A Worker timer keeps pumping through main-thread jank and the timer
+  // throttling some browsers apply to backgrounded pages.
+  function startPump() {
+    stopPump();
+    if (!pump && window.Worker && window.Blob && window.URL) {
+      try {
+        var src = 'var id=null;onmessage=function(e){clearInterval(id);id=null;' +
+                  'if(e.data>0)id=setInterval(function(){postMessage(0)},e.data)}';
+        var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        pump = new Worker(url);
+        URL.revokeObjectURL(url);
+        pump.onmessage = tickScheduler;
+      } catch (e) { pump = null; }
+    }
+    if (pump) pump.postMessage(LOOKAHEAD_MS);
+    else pumpTimer = setInterval(tickScheduler, LOOKAHEAD_MS);
+  }
+  function stopPump() {
+    if (pump) pump.postMessage(0);
+    if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = null; }
+  }
+
   // --- visual pulse, driven off the audio clock ---
+  function startRaf() {
+    if (rafOn) return;
+    rafOn = true;
+    requestAnimationFrame(raf);
+  }
   function raf() {
-    if (!running) return;
+    if (!running) { rafOn = false; return; }
     var now = ctx.currentTime;
     while (pendingFlashes.length && pendingFlashes[0] <= now) {
       pendingFlashes.shift();
@@ -523,19 +577,19 @@
   function start() {
     ensureCtx();
     running = true;
-    nextBeat = ctx.currentTime + 0.08;
+    gridAnchor = ctx.currentTime + 0.08;
+    beatN = 0;
     pendingFlashes = [];
     tickScheduler();
-    timer = setInterval(tickScheduler, LOOKAHEAD_MS);
-    requestAnimationFrame(raf);
+    startPump();
+    startRaf();
     grabWakeLock();
     go.dataset.running = 'true';
     go.textContent = 'Stop';
   }
   function stop() {
     running = false;
-    clearInterval(timer);
-    timer = null;
+    stopPump();
     pendingFlashes = [];
     if (canVibe) navigator.vibrate(0);
     dropWakeLock();
@@ -549,9 +603,9 @@
     if (document.visibilityState === 'visible' && running) {
       applySession();
       if (ctx && ctx.state === 'suspended') ctx.resume();
-      if (ctx) { nextBeat = Math.max(nextBeat, ctx.currentTime + 0.08); }
+      tickScheduler(); // catch-up logic realigns the grid after the gap
       grabWakeLock();
-      requestAnimationFrame(raf);
+      startRaf();
     }
   });
 

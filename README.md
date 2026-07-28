@@ -9,8 +9,12 @@ A running-cadence metronome for the mobile browser that plays clicks (or vibrati
   for diagnosing, but it pauses other audio.
 - **Android (Chrome):** no mixing API; Chrome may take audio focus and duck/pause
   music. The Vibrate mode is the reliable fallback — one haptic pulse per step.
-- Web Audio lookahead scheduler for drift-free timing; screen Wake Lock while
-  running (a suspended page can't tick — this is the browser-metronome trade-off).
+- Web Audio lookahead scheduler for drift-free timing: clicks are placed on the
+  audio-hardware clock from an anchored beat grid (`anchor + n × 60/bpm`, never
+  accumulated), the scheduler pump runs in a Web Worker so main-thread jank and
+  timer throttling can't stall it, and after a stall it skips to the next grid
+  slot instead of bursting missed clicks. Screen Wake Lock while running (a
+  suspended page can't tick — this is the browser-metronome trade-off).
 
 ## Stack
 
