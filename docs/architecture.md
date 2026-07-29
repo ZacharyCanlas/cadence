@@ -72,14 +72,19 @@ Covered in depth in [background-audio.md](background-audio.md). In short:
 - After a stall longer than the tolerance, the grid skips to the next live slot
   rather than firing every missed beat at once.
 - Everything queued is revocable, so a tempo change, a new sound or a stop
-  unwinds committed audio instead of waiting for it to drain.
+  unwinds committed audio instead of waiting for it to drain. Revoking is
+  announced through `onRevoke`, because the re-planned beats re-use the numbers
+  that were just thrown away.
 
-Two invariants are worth stating because they are easy to break:
+Three invariants are worth stating because they are easy to break:
 
 1. **Accent phase is tracked separately from grid index.** The grid re-anchors
    on a tempo change; the accent pattern must carry straight through. Revoking
    beats hands the beat numbering back to where it was for this reason.
-2. **Anything derived from time is computed from elapsed, not accumulated.**
+2. **A re-used beat number is always announced first.** Anything holding beats
+   it has not yet drawn or counted cannot otherwise tell the second beat 41 from
+   the first, and will treat both as having sounded.
+3. **Anything derived from time is computed from elapsed, not accumulated.**
    The session clock and the ramp both follow this, so a throttled timer in the
    background changes nothing about where they end up.
 
@@ -103,16 +108,55 @@ stall skipping missed beats rather than bursting, the tap average settling and
 ageing out old taps, the ramp curve hitting its target from both directions,
 and settings surviving corrupt, out-of-range and hostile storage.
 
-The audio graph and the DOM are deliberately left out. An integration test for
-them would need a headless browser and a mocked audio context, and would still
-not answer the only question that matters for this app, which is what a real
-mobile OS does to a backgrounded page. That is verified by hand on a device
-using the checklist in [background-audio.md](background-audio.md#verifying-on-a-device).
+The scheduler is covered too, behind the fake clock in
+`test/helpers/audio-harness.js`. This document used to argue that mocking the
+audio context was not worth the effort. That was wrong, and cheaply so: the fake
+is about two hundred lines with no dependencies, and the hard part turned out to
+be only that `advance()` has to step `context.currentTime` and the timers
+together in small slices, so a vibration timer never fires at a moment when the
+audio clock disagrees about what time it is. Node's own `mock.timers` does the
+rest.
 
-Writing the tests found two real defects, both in code that looked obviously
-correct: `beatIndexAt` returned `-0` at the grid origin, which would have
-propagated into beat numbering and accent arithmetic, and `beatsElapsed` was
-off by one exactly on the first beat.
+What has not changed is that this says nothing about what a real mobile OS does
+to a backgrounded page. That is still verified by hand on a device using the
+checklist in
+[background-audio.md](background-audio.md#verifying-on-a-device). The fake
+answers a narrower question — whether the scheduler does what it means to — and
+that question turned out to be where the bugs were.
+
+The DOM is still left out, and `main.js` with it, since it calls `init()` at
+import. That is now the largest untested surface in the app and it is where the
+open defect in [findings.md](findings.md) sits.
+
+Writing tests keeps finding defects in code that looked obviously correct. The
+pure modules gave up two: `beatIndexAt` returned `-0` at the grid origin, which
+would have propagated into beat numbering and accent arithmetic, and
+`beatsElapsed` was off by one exactly on the first beat. The scheduler gave up
+three more, all of which bite hardest with the screen off, which is precisely
+where hand-testing is least reliable:
+
+- Vibration stopped about a second after the page was hidden, because the whole
+  six-second lookahead sits past the one-second horizon a haptic timer can be
+  armed within, and nothing re-armed it.
+- A tempo change re-used the beat numbers it had just revoked, so the step
+  counter counted its own lookahead twice — better than double while hidden.
+- A tempo drop could place the first beat of the new grid a few milliseconds
+  after a beat that had survived inside the change lead. A sweep of phase
+  against tempo delta found 180 to 164 landing two beats 32ms apart where the
+  shortest legal gap is 333ms.
+- The mirror of that, found by reviewing the fix rather than by running it: a
+  tempo *rise* could round past a slot sitting inside the change lead and drop
+  the beat entirely, leaving a silence of two periods. About one change in six
+  for a jump like 150 to 180. This one predates the fix above and was not
+  introduced by it.
+
+A test suite that runs green says nothing on its own about whether it would go
+red. Each of these is pinned by a test that has been checked against a
+deliberately broken copy of the code it covers, and several of the first
+attempts turned out to pass against the mutation — `stopping unwinds what was
+already committed` proved the pump had stopped, which it would have done with
+the unwinding removed entirely. Worth repeating that check when adding to these
+files: write the mutation, confirm the red, then revert.
 
 ## Service worker
 

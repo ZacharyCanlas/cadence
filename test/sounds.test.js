@@ -12,6 +12,14 @@ function reaches(node, target, seen = new Set()) {
   return node.outputs.some((next) => reaches(next, target, seen));
 }
 
+/** The automation parameters a fake node can carry. */
+const PARAMS = ['gain', 'frequency', 'Q'];
+
+/** Every automation call made on a node, as [kind, value, time]. */
+function automation(node) {
+  return PARAMS.flatMap((name) => node[name]?.events ?? []);
+}
+
 for (const voice of VOICES) {
   for (const accent of [false, true]) {
     const label = accent ? `${voice.id} (accent)` : voice.id;
@@ -25,10 +33,12 @@ for (const voice of VOICES) {
 
       const built = context.nodes.slice(before).filter((node) => node !== destination);
       assert.ok(built.length > 0, 'the voice built something');
-      assert.ok(
-        built.some((node) => reaches(node, destination)),
-        'at least one path arrives at the destination',
-      );
+      // Every node, not merely one of them: a voice that wires its tone up
+      // correctly and leaves its noise layer dangling is half silent, and a
+      // check for any single path would not notice.
+      for (const node of built) {
+        assert.ok(reaches(node, destination), `the ${node.kind} arrives at the destination`);
+      }
     });
 
     test(`${label} schedules itself at the time it was given, not the clock`, () => {
@@ -52,8 +62,64 @@ for (const voice of VOICES) {
           assert.ok(node.stoppedAt > when, `${node.kind} stops after it starts`);
         }
       }
+
+      // start() is only half the story. The envelopes and frequency sweeps are
+      // the other half, and for the hi-hat the envelope is the only shaping
+      // there is, so a voice reading the clock for its automation would be
+      // wholly broken and still pass a check that only looked at start().
+      const events = context.nodes.flatMap(automation);
+      assert.ok(events.length > 0, 'the voice automates something');
+      for (const [kind, unused, time] of events) {
+        assert.ok(
+          time >= when,
+          `a ${kind} is scheduled at ${time}, before the beat at ${when} ` +
+            `(the clock reads ${context.currentTime})`,
+        );
+      }
     });
   }
+}
+
+/**
+ * What a render does to pitch and to level, separately.
+ *
+ * Kept apart on purpose. Comparing whole renders only catches an accent that
+ * has been removed outright: with the re-pitching gone the levels still differ,
+ * so the two renders still differ and the check passes while the accent no
+ * longer cuts through. Both halves have to be pinned on their own.
+ *
+ * Parameters are read by value as well as by automation event, since some
+ * voices set a filter frequency outright rather than scheduling it.
+ */
+function profile(voice, accent) {
+  const context = createFakeContext();
+  const destination = context.createGain();
+  voice.play(context, destination, 5, { accent });
+  const built = context.nodes.filter((node) => node !== destination);
+  return {
+    pitch: JSON.stringify(
+      built.map((node) => [
+        node.kind,
+        node.type ?? null,
+        node.frequency?.value ?? null,
+        node.frequency?.events ?? [],
+      ]),
+    ),
+    level: JSON.stringify(
+      built.map((node) => [node.kind, node.gain?.value ?? null, node.gain?.events ?? []]),
+    ),
+  };
+}
+
+for (const voice of VOICES) {
+  test(`${voice.id} is both re-pitched and lifted on the accent`, () => {
+    // Sixteen tests parameterised by `accent` prove nothing about the accent if
+    // none of them ever compares the two renders.
+    const plain = profile(voice, false);
+    const accented = profile(voice, true);
+    assert.notEqual(plain.pitch, accented.pitch, 'the accent moves the pitch');
+    assert.notEqual(plain.level, accented.level, 'the accent moves the level');
+  });
 }
 
 test('every voice is reachable by id, and an unknown id still returns one', () => {
