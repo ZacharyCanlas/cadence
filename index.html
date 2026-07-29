@@ -5,129 +5,15 @@
 <title>Cadence, a running metronome</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="A running metronome that keeps time over your music and carries on with the screen off.">
-<link rel="stylesheet" href="styles.css">
-<link rel="icon" href="icon-192.png">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0F1114">
 </head>
 <body>
-<div class="app">
-  <header class="topbar">
-    <div class="wordmark">CA<b>DEN</b>CE</div>
-    <button class="ghost" id="statusToggle" aria-expanded="false" aria-controls="statusPanel">Status</button>
-  </header>
-
-  <main id="main">
-    <section class="hero" aria-labelledby="heroLabel">
-      <h1 id="heroLabel" class="sr-only">Cadence, a running metronome</h1>
-      <div class="ring" id="ring" aria-hidden="true">
-        <div class="beats" id="beats"></div>
-        <div class="readout">
-          <div class="bpm" id="bpmOut">180</div>
-          <div class="unit">steps per minute</div>
-        </div>
-      </div>
-      <p class="session" id="session" hidden>
-        <span id="elapsed">0:00</span>
-        <span class="sep" aria-hidden="true">·</span>
-        <span id="steps">0 steps</span>
-      </p>
-      <p class="live sr-only" id="live" role="status" aria-live="polite"></p>
-    </section>
-
-    <section class="tempo" aria-label="Cadence">
-      <button class="step" id="dec" aria-label="One step per minute slower">&minus;</button>
-      <input type="range" id="slider" min="100" max="220" step="1" value="180" aria-label="Steps per minute">
-      <button class="step" id="inc" aria-label="One step per minute faster">+</button>
-    </section>
-
-    <button class="tap" id="tap">
-      <span class="tap-label">Tap your stride</span>
-      <span class="tap-hint" id="tapHint">Tap along as you run to read your cadence</span>
-    </button>
-
-    <section class="panel" aria-labelledby="presetsLabel">
-      <h2 id="presetsLabel">Presets</h2>
-      <div class="presets" id="presets" role="radiogroup" aria-labelledby="presetsLabel"></div>
-      <p class="hint" id="presetHint"></p>
-    </section>
-
-    <section class="panel" aria-labelledby="soundLabel">
-      <h2 id="soundLabel">Sound</h2>
-      <div class="voices" id="voices" role="radiogroup" aria-labelledby="soundLabel"></div>
-      <p class="hint" id="voiceHint"></p>
-      <div class="row">
-        <label for="volume">Volume</label>
-        <input type="range" id="volume" min="0" max="100" step="1" value="70" aria-label="Sound volume">
-        <output class="value" id="volumeValue" for="volume">70</output>
-      </div>
-    </section>
-
-    <section class="panel" aria-labelledby="accentLabel">
-      <h2 id="accentLabel">Accent</h2>
-      <div class="accents" id="accents" role="radiogroup" aria-labelledby="accentLabel"></div>
-      <p class="hint" id="accentHint"></p>
-    </section>
-
-    <section class="panel" aria-labelledby="outputLabel">
-      <h2 id="outputLabel">Output</h2>
-      <div class="switches" id="switches"></div>
-      <p class="hint">One output always stays on, so there is never a run with nothing to follow.</p>
-    </section>
-
-    <section class="panel" aria-labelledby="rampLabel">
-      <h2 id="rampLabel">Cadence ramp</h2>
-      <p class="hint">
-        Start where you run now and climb to the target across the run. Adding a
-        few steps per minute at a time sticks better than jumping to the number.
-      </p>
-      <div class="switches" id="rampSwitch"></div>
-      <div class="ramp-fields" id="rampFields">
-        <div class="row">
-          <label for="rampTo">Target</label>
-          <input type="range" id="rampTo" min="100" max="220" step="1" value="180" aria-label="Ramp target cadence">
-          <output class="value" id="rampToValue" for="rampTo">180</output>
-        </div>
-        <div class="row">
-          <label for="rampMinutes">Over</label>
-          <input type="range" id="rampMinutes" min="1" max="60" step="1" value="10" aria-label="Ramp length in minutes">
-          <output class="value" id="rampMinutesValue" for="rampMinutes">10 min</output>
-        </div>
-        <div class="ramp-progress" id="rampProgress" hidden>
-          <div class="track"><div class="fill" id="rampFill"></div></div>
-          <p class="hint" id="rampStatus"></p>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel status" id="statusPanel" aria-labelledby="statusLabel" hidden>
-      <h2 id="statusLabel">Status</h2>
-      <ul class="checks" id="checks"></ul>
-      <p class="hint">
-        Closing the app entirely stops the beat. No web app can keep making
-        sound once it is closed, only while it is running in the background.
-      </p>
-    </section>
-  </main>
-
-  <div class="dock">
-    <button class="go" id="go" data-running="false">Start</button>
-  </div>
-</div>
-
-<script type="module" src="src/main.js"></script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {
-        // Offline install is a bonus, not a requirement for the app to run.
-      });
-    });
-  }
-</script>
+<div id="app"></div>
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
