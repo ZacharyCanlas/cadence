@@ -203,14 +203,18 @@ export async function createHarness(t, handlers = {}) {
   const beats = [];
   /** Beat counts handed back as revoked, in order. */
   const revocations = [];
+  /** `beats` minus everything revoked: the run that is actually heard. */
+  let heard = [];
   let stateChanges = 0;
   const engine = createMetronome({
     onBeats: (batch) => {
       beats.push(...batch);
+      heard.push(...batch);
       handlers.onBeats?.(batch);
     },
     onRevoke: (fromCount) => {
       revocations.push(fromCount);
+      heard = heard.filter((beat) => beat.count < fromCount);
       handlers.onRevoke?.(fromCount);
     },
     onStateChange: () => {
@@ -233,6 +237,35 @@ export async function createHarness(t, handlers = {}) {
     revocations,
     vibrations: currentVibrations,
     sessions: currentSessions,
+
+    /**
+     * The engine's master gain: the one node wired straight to the destination.
+     * Every beat gets its own gain into this, and revoking a beat disconnects
+     * it, so counting what still arrives here counts the audio still committed.
+     */
+    master() {
+      return context.nodes.find(
+        (node) => node.kind === 'gain' && node.outputs.includes(context.destination),
+      );
+    },
+
+    /**
+     * The beats that actually sounded, in time order.
+     *
+     * `beats` is every beat the engine ever announced, which after a tempo
+     * change holds both a revoked entry and its replacement under the same
+     * number. This drops the revoked ones, which is what any real listener
+     * has to do, and is what most assertions want.
+     */
+    survivors() {
+      return [...heard].sort((a, b) => a.time - b.time);
+    },
+
+    /** Per-beat channels still wired to the master, i.e. still able to sound. */
+    liveChannels() {
+      const master = this.master();
+      return master ? context.nodes.filter((node) => node.outputs.includes(master)).length : 0;
+    },
     get stateChanges() {
       return stateChanges;
     },
@@ -247,7 +280,14 @@ export async function createHarness(t, handlers = {}) {
       }
     },
 
-    /** Gaps between consecutive scheduled beats, which is where drift would show. */
+    /**
+     * Gaps between consecutive scheduled beats, which is where drift would show.
+     *
+     * Only meaningful for a run with no revocations in it. A tempo change
+     * re-emits the beats it revoked, so `beats` then holds both the discarded
+     * entry and its replacement and these gaps go negative. Reconstruct the
+     * surviving run from `onRevoke` instead.
+     */
     gaps() {
       return beats.slice(1).map((beat, i) => beat.time - beats[i].time);
     },
