@@ -129,7 +129,7 @@ export function createMetronome({ onBeats = () => {}, onStateChange = () => {} }
 
   function queueVibration(time, accent) {
     const delay = (time - now()) * 1000;
-    if (delay > VIBRATE_HORIZON * 1000) return null; // topped up on a later pass
+    if (delay > VIBRATE_HORIZON * 1000) return null; // out of range; topUpVibrations retries
     return setTimeout(
       () => {
         if (running && vibrateOn) navigator.vibrate(accent ? VIBRATE_ACCENT_MS : VIBRATE_MS);
@@ -179,6 +179,23 @@ export function createMetronome({ onBeats = () => {}, onStateChange = () => {} }
     if (earliestRevoked !== null) nextCount = earliestRevoked;
   }
 
+  /**
+   * Arm the haptics that were out of range when their beat was queued.
+   *
+   * Sound goes onto the audio clock seconds ahead, but a vibration is a plain
+   * timer and cannot usefully be set that far out, so anything past the horizon
+   * is queued with no timer at all. Once the page is hidden the whole lookahead
+   * sits past that horizon, which would leave every beat silent on the motor.
+   * Each pass therefore re-checks what is queued and arms whatever has since
+   * come into range.
+   */
+  function topUpVibrations() {
+    if (!vibrateOn || !capabilities.vibrate) return;
+    for (const beat of queued) {
+      if (beat.vibeTimer === null) beat.vibeTimer = queueVibration(beat.time, beat.accent);
+    }
+  }
+
   function schedule() {
     if (!running || !context) return;
     prune();
@@ -193,20 +210,25 @@ export function createMetronome({ onBeats = () => {}, onStateChange = () => {} }
       CATCHUP_TOLERANCE,
     );
     nextIndex = advanced;
-    if (beats.length === 0) return;
 
-    const sounded = [];
-    for (const beat of beats) {
-      const count = nextCount;
-      nextCount += 1;
-      const accent = isAccent(count);
-      const entry = { time: beat.time, count, accent, channel: null, vibeTimer: null };
-      if (clickOn) entry.channel = playVoice(beat.time, accent);
-      if (vibrateOn && capabilities.vibrate) entry.vibeTimer = queueVibration(beat.time, accent);
-      queued.push(entry);
-      sounded.push({ index: beat.index, time: beat.time, count, accent });
+    if (beats.length > 0) {
+      const sounded = [];
+      for (const beat of beats) {
+        const count = nextCount;
+        nextCount += 1;
+        const accent = isAccent(count);
+        const entry = { time: beat.time, count, accent, channel: null, vibeTimer: null };
+        if (clickOn) entry.channel = playVoice(beat.time, accent);
+        if (vibrateOn && capabilities.vibrate) entry.vibeTimer = queueVibration(beat.time, accent);
+        queued.push(entry);
+        sounded.push({ index: beat.index, time: beat.time, count, accent });
+      }
+      onBeats(sounded);
     }
-    onBeats(sounded);
+
+    // Runs on every pass, including the passes that queue nothing new, because
+    // a full queue is exactly the state a hidden page spends its time in.
+    topUpVibrations();
   }
 
   /** Re-plan from `at` with the current settings, keeping the beat phase intact. */
