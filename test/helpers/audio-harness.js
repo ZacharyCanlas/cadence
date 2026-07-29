@@ -140,6 +140,11 @@ class FakeAudioContext {
   }
 }
 
+/** A bare fake context, for testing voices without an engine around them. */
+export function createFakeContext() {
+  return new FakeAudioContext();
+}
+
 /** The context the installed constructor hands out. Swapped per harness. */
 let currentContext = null;
 /** Vibration calls, stamped with the audio time at which they landed. */
