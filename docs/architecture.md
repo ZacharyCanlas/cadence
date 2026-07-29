@@ -11,6 +11,7 @@ src/
   main.js           composition root: builds controls, wires them to the engine
   audio-engine.js   the scheduler; queues revocable beats on the audio clock
   beat-grid.js      pure beat maths (anchor + n * period)
+  cadence.js        the cadence chosen vs the cadence sounding
   sounds.js         the eight synthesised voices
   presets.js        training presets and accent patterns
   ramp.js           pure cadence-ramp maths
@@ -30,8 +31,8 @@ test/               node --test, no dependencies
 
 Modules fall into two groups, and the split is what makes the app testable.
 
-**Pure logic, no DOM and no audio.** `beat-grid.js`, `ramp.js`, `tap-tempo.js`
-and the validation half of `settings.js`. This is the code that is easy to get
+**Pure logic, no DOM and no audio.** `beat-grid.js`, `ramp.js`, `tap-tempo.js`,
+`cadence.js` and the validation half of `settings.js`. This is the code that is easy to get
 quietly wrong and hard to notice on a run: an off-by-one in beat numbering or a
 ramp that overshoots its target will not throw an error, it will just be
 subtly incorrect for forty minutes. All of it is unit tested.
@@ -76,7 +77,7 @@ Covered in depth in [background-audio.md](background-audio.md). In short:
   announced through `onRevoke`, because the re-planned beats re-use the numbers
   that were just thrown away.
 
-Three invariants are worth stating because they are easy to break:
+Four invariants are worth stating because they are easy to break:
 
 1. **Accent phase is tracked separately from grid index.** The grid re-anchors
    on a tempo change; the accent pattern must carry straight through. Revoking
@@ -87,6 +88,9 @@ Three invariants are worth stating because they are easy to break:
 3. **Anything derived from time is computed from elapsed, not accumulated.**
    The session clock and the ramp both follow this, so a throttled timer in the
    background changes nothing about where they end up.
+4. **The cadence you chose and the cadence sounding are different numbers.**
+   Only the first is ever saved. Persisting the second let a ramp overwrite its
+   own starting point, so it worked exactly once. `cadence.js` holds the split.
 
 ## Sound synthesis
 
@@ -125,8 +129,10 @@ answers a narrower question — whether the scheduler does what it means to — 
 that question turned out to be where the bugs were.
 
 The DOM is still left out, and `main.js` with it, since it calls `init()` at
-import. That is now the largest untested surface in the app and it is where the
-open defect in [findings.md](findings.md) sits.
+import. That is still the largest untested surface in the app. The way to shrink
+it is the way `cadence.js` was arrived at: when a defect turns out to be
+untestable, move the rule it broke into a module with no DOM in it, rather than
+fixing it in place and hoping.
 
 Writing tests keeps finding defects in code that looked obviously correct. The
 pure modules gave up two: `beatIndexAt` returned `-0` at the grid origin, which
