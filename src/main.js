@@ -5,11 +5,12 @@
 
 import { createMetronome } from './audio-engine.js';
 import { MAX_BPM, MIN_BPM } from './beat-grid.js';
+import { createCadence } from './cadence.js';
 import { createKeepAlive } from './keep-alive.js';
 import { createMediaSession } from './media-session.js';
 import { capabilities, isIOS } from './platform.js';
 import { ACCENTS, PRESETS } from './presets.js';
-import { rampBpmAt, rampDone, rampProgress } from './ramp.js';
+import { rampDone, rampProgress } from './ramp.js';
 import { load, save, safeLocalStorage } from './settings.js';
 import { VOICES, findVoice } from './sounds.js';
 import { createTapTempo } from './tap-tempo.js';
@@ -22,7 +23,7 @@ let settings = load(storage);
 /** Beats scheduled but not yet reached, drained by the animation loop. */
 let pendingBeats = [];
 let stepCount = 0;
-let rampFrom = settings.bpm;
+const cadence = createCadence(settings.bpm);
 let frame = null;
 let clockTimer = null;
 
@@ -65,20 +66,27 @@ function update(patch) {
 
 function setBpm(value, { fromRamp = false } = {}) {
   const applied = engine.setBpm(value);
-  if (applied === settings.bpm) return applied;
-  update({ bpm: applied });
-  if (!fromRamp) rampFrom = applied;
+  if (applied === cadence.current) return applied;
+  // Only a deliberate change is saved. Persisting the ramp's own output would
+  // overwrite the cadence you chose with the ramp's target, and the next run
+  // would have nothing left to climb. See cadence.js.
+  if (fromRamp) {
+    cadence.sound(applied);
+  } else {
+    cadence.choose(applied);
+    update({ bpm: cadence.chosen });
+  }
   paintBpm();
   if (engine.running) mediaSession.describe(applied);
   return applied;
 }
 
 function paintBpm() {
-  $('bpmOut').textContent = settings.bpm;
-  $('slider').value = settings.bpm;
-  presetGroup.setValue(settings.bpm);
+  $('bpmOut').textContent = cadence.current;
+  $('slider').value = cadence.current;
+  presetGroup.setValue(cadence.current);
 
-  const preset = PRESETS.find((entry) => entry.bpm === settings.bpm);
+  const preset = PRESETS.find((entry) => entry.bpm === cadence.current);
   $('presetHint').textContent = preset
     ? `${preset.label}. ${preset.hint}.`
     : 'Set by hand. Tap a preset to jump to a known target.';
@@ -89,7 +97,7 @@ function paintBpm() {
 async function start() {
   if (engine.running) return;
 
-  rampFrom = settings.bpm;
+  cadence.beginRun();
   stepCount = 0;
   pendingBeats = [];
 
@@ -100,7 +108,7 @@ async function start() {
   engine.start();
   if (settings.background) {
     await keepAlive.start();
-    mediaSession.activate(settings.bpm);
+    mediaSession.activate(cadence.current);
   }
   wakeLock.request();
 
@@ -108,7 +116,7 @@ async function start() {
   $('go').textContent = 'Stop';
   $('session').hidden = false;
   $('rampProgress').hidden = !settings.rampOn;
-  announce(`Started at ${settings.bpm} steps per minute`);
+  announce(`Started at ${cadence.current} steps per minute`);
 
   startLoops();
   paintStatus();
@@ -117,6 +125,10 @@ async function start() {
 function stop() {
   if (!engine.running) return;
   engine.stop();
+  // Back to the cadence you chose, rather than sitting at wherever the ramp
+  // finished, so starting again is not a surprise.
+  cadence.endRun();
+  paintBpm();
   keepAlive.stop();
   mediaSession.deactivate();
   wakeLock.release();
@@ -221,8 +233,8 @@ function tickSession() {
   if (!settings.rampOn) return;
   // Derived from elapsed time rather than accumulated, so a throttled timer in
   // the background changes nothing about where the ramp ends up.
-  const target = rampBpmAt(rampFrom, settings.rampTo, settings.rampMinutes, elapsed);
-  if (target !== settings.bpm) setBpm(target, { fromRamp: true });
+  const target = cadence.rampTarget(settings.rampTo, settings.rampMinutes, elapsed);
+  if (target !== cadence.current) setBpm(target, { fromRamp: true });
 
   const progress = rampProgress(settings.rampMinutes, elapsed);
   $('rampFill').style.transform = `scaleX(${progress})`;
@@ -299,7 +311,7 @@ const backgroundSwitch = toggle({
     backgroundSwitch.set(value, { hint: backgroundHint(value) });
     if (engine.running) {
       if (value) {
-        keepAlive.start().then(() => mediaSession.activate(settings.bpm));
+        keepAlive.start().then(() => mediaSession.activate(cadence.current));
       } else {
         keepAlive.stop();
         mediaSession.deactivate();
@@ -331,7 +343,7 @@ const rampSwitch = toggle({
     rampSwitch.set(value);
     $('rampFields').dataset.enabled = String(value);
     $('rampProgress').hidden = !(value && engine.running);
-    if (value) rampFrom = settings.bpm;
+    if (value) cadence.rebaseRamp();
   },
 });
 $('rampSwitch').append(rampSwitch.node);
@@ -355,8 +367,8 @@ function paintOutputs() {
 // --- inputs -----------------------------------------------------------------
 
 $('slider').addEventListener('input', (event) => setBpm(event.target.value));
-$('dec').addEventListener('click', () => setBpm(settings.bpm - 1));
-$('inc').addEventListener('click', () => setBpm(settings.bpm + 1));
+$('dec').addEventListener('click', () => setBpm(cadence.current - 1));
+$('inc').addEventListener('click', () => setBpm(cadence.current + 1));
 
 $('volume').addEventListener('input', (event) => {
   const value = Number(event.target.value);
@@ -494,7 +506,7 @@ function init() {
   $('rampTo').min = String(MIN_BPM);
   $('rampTo').max = String(MAX_BPM);
 
-  engine.setBpm(settings.bpm);
+  engine.setBpm(cadence.current);
   engine.setVolume(settings.volume / 100);
   engine.setClick(settings.click);
   engine.setVibrate(settings.vibrate && capabilities.vibrate);
