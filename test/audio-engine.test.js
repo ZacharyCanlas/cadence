@@ -1,0 +1,147 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { createHarness } from './helpers/audio-harness.js';
+
+/** Beat times are floats off the audio clock; compare with a tolerance, not exactly. */
+function assertClose(actual, expected, tolerance, message) {
+  assert.ok(
+    Math.abs(actual - expected) <= tolerance,
+    `${message}: expected ${expected} +/- ${tolerance}, got ${actual}`,
+  );
+}
+
+/** Beats are re-emitted when a change re-plans them, so a count can appear more than once. */
+function uniqueCounts(beats) {
+  return [...new Set(beats.map((beat) => beat.count))].sort((a, b) => a - b);
+}
+
+test('the first beat is placed ahead of the clock, so the opening hit is not clipped', async (t) => {
+  const { engine, beats, context } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.start();
+
+  assert.equal(beats.length, 1, 'only the beat inside the foreground horizon is queued');
+  assert.ok(beats[0].time > context.currentTime, 'the first beat is in the future');
+  assertClose(beats[0].time, 0.08, 1e-9, 'the lead-in is the full START_LEAD');
+});
+
+test('beats stay one period apart across a long run, rather than accumulating error', async (t) => {
+  const { engine, gaps, advance } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.start();
+  advance(20);
+
+  const period = 60 / 180;
+  const spacings = gaps();
+  assert.ok(spacings.length > 55, `expected roughly 60 beats in 20s, got ${spacings.length + 1}`);
+  for (const gap of spacings) {
+    assertClose(gap, period, 1e-9, 'every gap is exactly one period');
+  }
+});
+
+test('the accent falls on the running beat count, not on the grid index', async (t) => {
+  const { engine, beats, advance } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.setAccentEvery(4);
+  engine.start();
+  advance(5);
+
+  for (const beat of beats) {
+    assert.equal(beat.accent, beat.count % 4 === 0, `beat ${beat.count} accented correctly`);
+  }
+  assert.ok(
+    beats.some((beat) => beat.accent),
+    'at least one accent landed',
+  );
+});
+
+test('a tempo change carries the accent phase straight through', async (t) => {
+  const { engine, beats, advance } = await createHarness(t);
+
+  engine.setBpm(160);
+  engine.setAccentEvery(4);
+  engine.start();
+  advance(4);
+
+  const before = uniqueCounts(beats).at(-1);
+  engine.setBpm(200);
+  advance(4);
+
+  const counts = uniqueCounts(beats);
+  assert.deepEqual(
+    counts,
+    counts.map((_, i) => i),
+    'the beat numbering runs unbroken from zero across the tempo change',
+  );
+  assert.ok(counts.at(-1) > before, 'the run continued after the change');
+});
+
+test('a tempo change takes effect without waiting for the queue to drain', async (t) => {
+  const { engine, beats, advance } = await createHarness(t);
+
+  engine.setBpm(120);
+  engine.start();
+  advance(3);
+
+  engine.setBpm(200);
+  advance(3);
+
+  const last = beats.slice(-6);
+  const spacings = last.slice(1).map((beat, i) => beat.time - last[i].time);
+  for (const gap of spacings) {
+    assertClose(gap, 60 / 200, 1e-9, 'the new tempo is already sounding');
+  }
+});
+
+test('stopping unwinds what was already committed to the hardware', async (t) => {
+  const { engine, beats, advance } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.start();
+  advance(2);
+
+  const queuedByStop = beats.length;
+  engine.stop();
+  advance(5);
+
+  assert.equal(beats.length, queuedByStop, 'nothing sounds after stop');
+  assert.equal(engine.running, false);
+});
+
+test('hiding the page queues seconds ahead, so a throttled pump still has audio', async (t) => {
+  const { engine, beats, advance, context } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.start();
+  advance(1);
+
+  const foregroundLead = beats.at(-1).time - context.currentTime;
+  assert.ok(foregroundLead < 0.5, `foreground lead stays short, got ${foregroundLead}`);
+
+  engine.setHidden(true);
+  const hiddenLead = beats.at(-1).time - context.currentTime;
+  assert.ok(hiddenLead > 5, `hidden lead covers a throttled pump, got ${hiddenLead}`);
+});
+
+test('a stall skips the beats it missed instead of firing them in a burst', async (t) => {
+  const { engine, beats, advance, context } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.start();
+  advance(1);
+
+  // The page freezes: the audio clock runs on while the pump never fires.
+  const before = beats.length;
+  context._ms += 10_000;
+  advance(1);
+
+  const missed = beats.length - before;
+  assert.ok(missed < 10, `a 10s stall does not queue 30 catch-up beats, got ${missed}`);
+  for (const beat of beats.slice(before)) {
+    assert.ok(beat.time > 10, 'every beat after the stall is on the live grid');
+  }
+});
