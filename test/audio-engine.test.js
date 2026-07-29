@@ -43,41 +43,71 @@ test('beats stay one period apart across a long run, rather than accumulating er
 });
 
 test('the accent falls on the running beat count, not on the grid index', async (t) => {
-  const { engine, beats, advance } = await createHarness(t);
+  // Without a tempo change the two are the same number, so a test that never
+  // re-anchors cannot tell which one the accent is keyed off.
+  const { engine, advance, survivors } = await createHarness(t);
 
   engine.setBpm(180);
   engine.setAccentEvery(4);
   engine.start();
-  advance(5);
+  // Re-anchoring restarts the index near 1 while the count runs on, so the two
+  // differ by whatever the count had reached. Change on a beat that is not a
+  // whole number of accent cycles in, or they stay congruent mod 4 and the two
+  // rules remain indistinguishable.
+  advance(3.5);
+  engine.setBpm(140);
+  advance(3);
 
-  for (const beat of beats) {
-    assert.equal(beat.accent, beat.count % 4 === 0, `beat ${beat.count} accented correctly`);
-  }
+  const live = survivors();
   assert.ok(
-    beats.some((beat) => beat.accent),
-    'at least one accent landed',
+    live.some((beat) => beat.index !== beat.count),
+    'the tempo change did separate the grid index from the beat count',
   );
+  assert.ok(
+    live.some((beat) => beat.index % 4 !== beat.count % 4),
+    'and separated them by enough to tell the two accent rules apart',
+  );
+
+  for (const beat of live) {
+    assert.equal(
+      beat.accent,
+      beat.count % 4 === 0,
+      `beat ${beat.count} at grid index ${beat.index}`,
+    );
+  }
+  assert.ok(live.filter((beat) => beat.accent).length > 3, 'several accents landed');
 });
 
-test('a tempo change carries the accent phase straight through', async (t) => {
-  const { engine, beats, advance } = await createHarness(t);
+test('a tempo change hands the beat numbering back rather than spending it', async (t) => {
+  // Revoked beats must give their numbers up again. If they do not, the numbers
+  // they consumed leave holes in the run that actually sounded, the accent
+  // pattern shifts by that much, and the step total counts beats nobody heard.
+  const { engine, advance, survivors } = await createHarness(t);
 
-  engine.setBpm(160);
+  engine.setBpm(180);
   engine.setAccentEvery(4);
   engine.start();
-  advance(4);
+  // Hidden commits six seconds at a time, so each change throws away far more.
+  engine.setHidden(true);
+  advance(3);
+  for (const bpm of [190, 200, 210]) {
+    engine.setBpm(bpm);
+    advance(3);
+  }
 
-  const before = uniqueCounts(beats).at(-1);
-  engine.setBpm(200);
-  advance(4);
-
-  const counts = uniqueCounts(beats);
+  const live = survivors();
+  const counts = live.map((beat) => beat.count);
   assert.deepEqual(
     counts,
-    counts.map((_, i) => i),
-    'the beat numbering runs unbroken from zero across the tempo change',
+    counts.map((unused, i) => i),
+    'the beats that sounded are numbered 0..N, with nothing spent on revoked ones',
   );
-  assert.ok(counts.at(-1) > before, 'the run continued after the change');
+
+  // The musical statement, independent of how the numbering is done: every
+  // fourth beat you actually hear is the accented one.
+  live.forEach((beat, position) => {
+    assert.equal(beat.accent, position % 4 === 0, `the ${position}th beat heard`);
+  });
 });
 
 test('a tempo change takes effect without waiting for the queue to drain', async (t) => {
@@ -98,16 +128,34 @@ test('a tempo change takes effect without waiting for the queue to drain', async
 });
 
 test('stopping unwinds what was already committed to the hardware', async (t) => {
-  const { engine, beats, advance } = await createHarness(t);
+  const harness = await createHarness(t);
+  const { engine, beats, advance, context } = harness;
 
   engine.setBpm(180);
   engine.start();
-  advance(2);
+  // Hidden commits six seconds of clicks, so there is something worth unwinding.
+  engine.setHidden(true);
+  advance(3);
+
+  const sounded = beats.filter((beat) => beat.time <= context.currentTime).length;
+  assert.ok(
+    harness.liveChannels() > sounded,
+    'seconds of audio are committed to the master ahead of the clock',
+  );
 
   const queuedByStop = beats.length;
   engine.stop();
-  advance(5);
 
+  // The point of stopping is that committed audio is taken back, not left to
+  // drain. Counting the pump's silence alone would pass with the unwinding
+  // removed entirely.
+  assert.equal(
+    harness.liveChannels(),
+    sounded,
+    'only the beats that already sounded are still wired to the master',
+  );
+
+  advance(5);
   assert.equal(beats.length, queuedByStop, 'nothing sounds after stop');
   assert.equal(engine.running, false);
 });
@@ -160,9 +208,56 @@ test('the beat keeps vibrating once the page is hidden', async (t) => {
   vibrations.length = 0;
   advance(5);
 
+  const period = 60 / 180;
+  const expected = Math.floor(5 / period);
   assert.ok(
-    vibrations.length >= 14,
-    `180bpm for 5s hidden is ~15 buzzes, got ${vibrations.length}`,
+    vibrations.length >= expected - 1 && vibrations.length <= expected + 1,
+    `180bpm for 5s hidden is about ${expected} buzzes, got ${vibrations.length}`,
+  );
+
+  // A count alone only catches total silence. The fix is about *when* a haptic
+  // is armed, so the spacing is the part worth pinning: firing on arming rather
+  // than on the beat, or re-arming on every pump pass, both cluster the buzzes
+  // while leaving the count plausible.
+  for (let i = 1; i < vibrations.length; i += 1) {
+    assertClose(
+      vibrations[i].at - vibrations[i - 1].at,
+      period,
+      0.01,
+      'buzzes land one beat apart',
+    );
+  }
+});
+
+test('a revoked beat does not go on to buzz', async (t) => {
+  const { engine, advance, vibrations, survivors, context } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.setVibrate(true);
+  engine.start();
+  engine.setHidden(true);
+  advance(2);
+
+  const from = context.currentTime;
+  vibrations.length = 0;
+  for (const bpm of [170, 160, 150]) {
+    engine.setBpm(bpm);
+    advance(2);
+  }
+  const until = context.currentTime;
+
+  // Compare against the beats that sounded inside the window, not the beats
+  // queued during it: the lookahead is a fixed six seconds, so a slowing tempo
+  // means fewer beats queued than heard.
+  const sounded = survivors().filter(
+    (beat) => beat.time > from && beat.time <= until,
+  ).length;
+
+  // Each change throws away six seconds of committed beats. Their timers have
+  // to go with them, or the motor runs at the tempo you just left.
+  assert.ok(
+    Math.abs(vibrations.length - sounded) <= 1,
+    `${sounded} beats sounded but the motor fired ${vibrations.length} times`,
   );
 });
 
@@ -250,6 +345,46 @@ test('a tempo change never lands a beat on top of one already committed', async 
       gap >= floor - 1e-9,
       `beats ${live[i - 1].count} and ${live[i].count} are ${gap.toFixed(4)}s apart, ` +
         `closer than the ${floor.toFixed(4)}s of the fastest tempo used`,
+    );
+  }
+});
+
+test('a tempo change never swallows a beat either', async (t) => {
+  // The mirror of the test above. Re-anchoring has two ways to go wrong: it can
+  // put a beat on top of one already committed, or it can round past a slot
+  // that should still have been heard and leave a silence of two periods. Only
+  // a tempo rise can do the second, because only a shorter new period can place
+  // a slot inside the change lead.
+  const { engine, advance, survivors } = await createHarness(t);
+
+  const slowest = 120;
+  engine.setBpm(slowest);
+  engine.start();
+
+  const rises = [
+    [132, 1.04],
+    [147, 1.03],
+    [159, 1.07],
+    [168, 1.02],
+    [181, 1.05],
+    [196, 1.06],
+    [207, 1.01],
+    [220, 1.04],
+  ];
+  for (const [bpm, wait] of rises) {
+    advance(wait);
+    engine.setBpm(bpm);
+  }
+  advance(2);
+
+  const live = survivors();
+  const ceiling = 60 / slowest;
+  for (let i = 1; i < live.length; i += 1) {
+    const gap = live[i].time - live[i - 1].time;
+    assert.ok(
+      gap <= ceiling + 1e-9,
+      `beats ${live[i - 1].count} and ${live[i].count} are ${gap.toFixed(4)}s apart, ` +
+        `longer than the ${ceiling.toFixed(4)}s of the slowest tempo used`,
     );
   }
 });

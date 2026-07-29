@@ -278,7 +278,13 @@ export function createMetronome({
 
     anchor = lastBeat;
     bpm = nextBpm;
-    nextIndex = beatIndexAt(anchor, bpm, from);
+    // Index 0 is the anchor, which is the beat still committed, so the run
+    // resumes at 1 at the earliest. Counting from `at` rather than from the
+    // change lead matters on a tempo rise: a slot landing inside the lead is a
+    // beat that should still be heard, and rounding past it drops one, leaving
+    // a gap of two periods where the ear expects one. Nothing kept can collide
+    // with it, because everything kept is at or before the anchor.
+    nextIndex = Math.max(1, beatIndexAt(anchor, bpm, at));
     schedule();
   }
 
