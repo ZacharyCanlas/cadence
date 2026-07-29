@@ -145,3 +145,23 @@ test('a stall skips the beats it missed instead of firing them in a burst', asyn
     assert.ok(beat.time > 10, 'every beat after the stall is on the live grid');
   }
 });
+
+test('the beat keeps vibrating once the page is hidden', async (t) => {
+  const { engine, advance, vibrations } = await createHarness(t);
+
+  engine.setBpm(180);
+  engine.setVibrate(true);
+  engine.start();
+  advance(1);
+
+  // Hiding stretches the lookahead to several seconds, which is exactly the
+  // case where a haptic queued only a second ahead would be missed.
+  engine.setHidden(true);
+  vibrations.length = 0;
+  advance(5);
+
+  assert.ok(
+    vibrations.length >= 14,
+    `180bpm for 5s hidden is ~15 buzzes, got ${vibrations.length}`,
+  );
+});
