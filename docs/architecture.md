@@ -5,59 +5,96 @@ How the app is put together, and the reasoning behind the structural choices.
 ## Layout
 
 ```
-index.html          structure only
-styles.css          design tokens and every component
+index.html               Vite entry; head only, Vue owns the body
+vite.config.ts           Vue plugin + PWA manifest and Workbox config
 src/
-  main.js           composition root: builds controls, wires them to the engine
-  audio-engine.js   the scheduler; queues revocable beats on the audio clock
-  beat-grid.js      pure beat maths (anchor + n * period)
-  cadence.js        the cadence chosen vs the cadence sounding
-  sounds.js         the eight synthesised voices
-  presets.js        training presets and accent patterns
-  ramp.js           pure cadence-ramp maths
-  tap-tempo.js      pure rolling-average tap detection
-  settings.js       validated, persisted settings
-  platform.js       feature detection and the Audio Session wrapper
-  keep-alive.js     the media element that keeps the page resident
-  media-session.js  lock screen controls
-  wake-lock.js      screen wake lock
-  pump.js           worker-backed scheduler heartbeat
-  ui.js             small DOM builders
-sw.js               offline shell
-test/               node --test, no dependencies
+  main.ts                    createApp, base styles, service worker registration
+  App.vue                    the one screen: hero, panels, dock
+  assets/base.css            tokens, reset, and the patterns shared by 2+ components
+  core/                      pure logic; no DOM, no audio, no Vue
+    beat-grid.ts             pure beat maths (anchor + n * period)
+    beat-feed.ts             pending-beat bookkeeping and the honest step count
+    cadence.ts               the cadence chosen vs the cadence sounding
+    ramp.ts                  pure cadence-ramp maths
+    tap-tempo.ts             pure rolling-average tap detection
+    settings.ts              validated, persisted settings
+    sounds.ts                the eight synthesised voices
+    presets.ts               training presets and accent patterns
+    format.ts                clock and step-count formatting
+  platform/                  thin wrappers around browser APIs; no Vue either
+    audio-engine.ts          the scheduler; queues revocable beats on the audio clock
+    platform.ts              feature detection and the Audio Session wrapper
+    keep-alive.ts            the media element that keeps the page resident
+    media-session.ts         lock screen controls
+    wake-lock.ts             screen wake lock
+    pump.ts                  worker-backed scheduler heartbeat
+  composables/
+    useSettings.ts           the settings object made reactive, persistence on write
+    useMetronome.ts          the one engine instance, mirrored into refs; all actions
+  components/                each carries its own scoped styles
+    BeatRing.vue             the pulsing ring, beat markers, big number
+    CadenceControl.vue       minus / slider / plus
+    TapTempoButton.vue       tap-your-stride reader
+    BaseSegmentedGroup.vue   accessible radio row (presets, voices, accents)
+    BaseToggleSwitch.vue     accessible switch row
+    *Panel.vue               one component per panel of the setup surface
+public/                      icons and the legacy service worker cleanup script
+test/                        node --test, still zero dependencies (type stripping)
 ```
 
 ## The organising principle
 
-Modules fall into two groups, and the split is what makes the app testable.
+Modules fall into three groups, and the split is what makes the app testable.
 
-**Pure logic, no DOM and no audio.** `beat-grid.js`, `ramp.js`, `tap-tempo.js`,
-`cadence.js` and the validation half of `settings.js`. This is the code that is easy to get
-quietly wrong and hard to notice on a run: an off-by-one in beat numbering or a
-ramp that overshoots its target will not throw an error, it will just be
-subtly incorrect for forty minutes. All of it is unit tested.
+**Pure logic, no DOM and no audio.** Everything in `src/core/`. This is the
+code that is easy to get quietly wrong and hard to notice on a run: an
+off-by-one in beat numbering or a ramp that overshoots its target will not
+throw an error, it will just be subtly incorrect for forty minutes. All of it
+is unit tested, and none of it imports Vue.
 
-**Thin wrappers around browser APIs.** `platform.js`, `keep-alive.js`,
-`media-session.js`, `wake-lock.js`, `pump.js`. Each is small enough to read in
-one sitting and does nothing clever, because the browser is already doing the
-complicated part. These are verified in a real browser, not mocked.
+**Thin wrappers around browser APIs.** Everything in `src/platform/`. Each is
+small enough to read in one sitting and does nothing clever, because the
+browser is already doing the complicated part. These are verified in a real
+browser, not mocked. `audio-engine.ts` sits between the two groups and is
+tested against a fake clock.
 
-`audio-engine.js` sits between the two, and `main.js` is the only place that
-knows about both the DOM and the engine.
+**The Vue layer.** `useMetronome.ts` is the old composition root reborn: it
+owns the single engine instance, mirrors the state templates need into refs,
+and holds every invariant the controls rely on (engine first, then persist
+what it actually applied; ramp output never saved; the keep-alive element
+started inside the user gesture). Components stay declarative and dumb; the
+one deliberate exception is the ring flash in `BeatRing.vue`, which stays
+imperative because a class binding cannot restart a CSS animation reliably.
 
-## No framework
+## The framework decision
 
-The app is one screen with roughly a dozen controls, no routing, no server
-state and no shared component tree. React or Svelte would add a build step, a
-dependency tree to keep patched, and a deploy pipeline, in exchange for solving
-problems this app does not have.
+Earlier revisions of this app were deliberately build-free vanilla JS, and
+this document argued for that while the app was one screen driven by hand-wired
+DOM updates. The rework to Vue 3 replaced the hand synchronisation (`paint*`
+functions and manual `setValue` calls) with declarative templates, at the cost
+the old argument predicted: a build step, a dependency tree to keep patched,
+and CI for GitHub Pages.
 
-The real structural problem was a single 660 line `index.html` holding markup,
-styles and all logic at once. ES modules solved that without adding a
-toolchain. Staying build-free has two further benefits worth keeping: the
-source that ships is the source you read, and GitHub Pages needs no CI.
+What the migration deliberately did *not* touch is the part of the app that is
+actually hard: `core/` and `platform/` are the same modules the vanilla app
+ran, none of them import Vue, and the test suite that pins the scheduler ran
+unchanged against them throughout. If Vue ever needs to go, it takes
+`components/` and `composables/` with it and nothing else.
 
-Worth revisiting if the app grows a second screen, run history, or accounts.
+Conventions the Vue layer follows: `<script setup lang="ts">` single-file
+components, strict TypeScript everywhere (`vue-tsc` gates the build), state
+shared through composable singletons rather than a store library (Pinia earns
+its place when there are multiple stores or devtools needs; one screen with
+one engine does not need it), props down and events up, and reactive state
+mirrored out of the engine rather than the engine made reactive.
+
+Styles are colocated: each component owns its rules in a `<style scoped>`
+block, and `assets/base.css` holds only what is genuinely shared — tokens,
+the reset, and the patterns used by more than one component (panel
+scaffolding, hints, slider rows). Reusable presentational primitives carry
+the style guide's `Base` prefix. Type declarations default to `type`;
+`interface` appears only where declaration merging is the point, i.e. the
+global browser-API augmentations in `types/platform-extras.d.ts`.
 
 ## The scheduling model
 
@@ -90,11 +127,12 @@ Four invariants are worth stating because they are easy to break:
    background changes nothing about where they end up.
 4. **The cadence you chose and the cadence sounding are different numbers.**
    Only the first is ever saved. Persisting the second let a ramp overwrite its
-   own starting point, so it worked exactly once. `cadence.js` holds the split.
+   own starting point, so it worked exactly once. `core/cadence.ts` holds the
+   split.
 
 ## Sound synthesis
 
-The eight voices in `sounds.js` are built from oscillators and a shared noise
+The eight voices in `core/sounds.ts` are built from oscillators and a shared noise
 buffer rather than loaded from files. This keeps the app a few kilobytes and
 working offline from first install, and it means the accent can be a re-pitched
 variant of the same voice rather than a second recording.
@@ -105,7 +143,10 @@ allows a voice to be queued seconds ahead without sounding different.
 
 ## Testing
 
-`npm test` runs Node's built-in test runner. No dependencies, no config.
+`npm test` runs Node's built-in test runner directly against the TypeScript
+sources — Node 22.18+ strips the types natively, so the suite still has no
+dependencies and no config. `npm run typecheck` (also the first half of
+`npm run build`) runs `vue-tsc` over sources, components and tests.
 
 Coverage targets the pure modules: beat times not drifting over an hour, a
 stall skipping missed beats rather than bursting, the tap average settling and
@@ -113,7 +154,7 @@ ageing out old taps, the ramp curve hitting its target from both directions,
 and settings surviving corrupt, out-of-range and hostile storage.
 
 The scheduler is covered too, behind the fake clock in
-`test/helpers/audio-harness.js`. This document used to argue that mocking the
+`test/helpers/audio-harness.ts`. This document used to argue that mocking the
 audio context was not worth the effort. That was wrong, and cheaply so: the fake
 is about two hundred lines with no dependencies, and the hard part turned out to
 be only that `advance()` has to step `context.currentTime` and the timers
@@ -128,11 +169,15 @@ checklist in
 answers a narrower question — whether the scheduler does what it means to — and
 that question turned out to be where the bugs were.
 
-The DOM is still left out, and `main.js` with it, since it calls `init()` at
-import. That is still the largest untested surface in the app. The way to shrink
-it is the way `cadence.js` was arrived at: when a defect turns out to be
-untestable, move the rule it broke into a module with no DOM in it, rather than
-fixing it in place and hoping.
+The DOM is still left out, and the Vue layer with it: `useMetronome.ts` and
+the components are the largest untested surface in the app. The way to shrink
+it is the way `core/cadence.ts` was arrived at: when a defect turns out to be
+untestable, move the rule it broke into a module with no DOM in it, rather
+than fixing it in place and hoping. `core/beat-feed.ts` is that move applied
+to the pending-beat bookkeeping — the drain, the step count, and the
+revocation drop are now pinned by tests instead of read for correctness.
+(Component tests via Vitest and @vue/test-utils are the alternative if that
+ever stops being enough.)
 
 Writing tests keeps finding defects in code that looked obviously correct. The
 pure modules gave up two: `beatIndexAt` returned `-0` at the grid origin, which
@@ -166,18 +211,25 @@ files: write the mutation, confirm the red, then revert.
 
 ## Service worker
 
-Navigations go to the network first and fall back to the cached page, so a
-deploy is picked up on the next launch with a connection. Everything else is
-served from cache and refreshed in the background, so a run never waits on the
-network.
+The offline shell is generated by `vite-plugin-pwa` (Workbox `generateSW`)
+rather than written by hand: the whole build output is precached, hashed
+filenames make cache invalidation exact, and `registerType: 'autoUpdate'`
+swaps a new deploy in on the next launch with a connection. This changes the
+navigation strategy from the old worker's network-first to offline-first,
+which is the right trade for an app whose whole point is working mid-run with
+no signal.
 
-The install step fetches shell entries individually rather than with `addAll`,
-which is all-or-nothing and would leave the app with no cache at all if a
-single path were wrong.
+`public/sw-legacy-cleanup.js` rides along inside the generated worker to
+delete the `cadence-v*` caches the hand-written pre-Vite worker left behind;
+Workbox only cleans caches it owns.
+
+Because the shipped files are now build artifacts, GitHub Pages deploys
+through the workflow in `.github/workflows/deploy.yml` instead of serving the
+repository directly.
 
 ## Design system
 
-Tokens live at the top of `styles.css`. The layout treats the screen as two
+Tokens live at the top of `src/assets/base.css`. The layout treats the screen as two
 surfaces: the top is an instrument, read at arm's length in daylight while
 moving, and gets the size and contrast; the bottom is setup, read standing
 still, and gets the density.

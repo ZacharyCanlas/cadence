@@ -3,6 +3,13 @@
 Observations from reviewing the source that the test suite cannot settle on its
 own. Anything provable gets a test instead; this file is for what is left.
 
+> Entries below predate the Vue rework and use the old layout's names. The
+> composition root they call `main.js` lives on as
+> `src/composables/useMetronome.ts`, and the findings about it still apply
+> there; pure modules moved under `src/core/` with a `.ts` extension. The
+> beat bookkeeping singled out below has since been extracted to
+> `src/core/beat-feed.ts` and is covered by `test/beat-feed.test.ts`.
+
 ## Verified by inspection only
 
 **`main.js` cannot be loaded under `node --test`.** It calls `init()` at import
