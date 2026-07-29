@@ -207,3 +207,49 @@ test('a re-planned beat replaces the one it revoked rather than counting twice',
     `every step is counted once; ${stepped.length - new Set(stepped).size} were double-counted`,
   );
 });
+
+test('a tempo change never lands a beat on top of one already committed', async (t) => {
+  // Beats inside the change lead are too close to the present to re-plan, so
+  // they survive and will still be heard. A tempo drop lengthens the period,
+  // which is the case that can put the first beat of the new grid a few
+  // milliseconds after one of those survivors.
+  let live = [];
+  const { engine, advance } = await createHarness(t, {
+    onBeats: (batch) => live.push(...batch),
+    onRevoke: (fromCount) => {
+      live = live.filter((beat) => beat.count < fromCount);
+    },
+  });
+
+  const fastest = 220;
+  engine.setBpm(fastest);
+  engine.start();
+
+  // Odd offsets so the changes land at a spread of phases within the beat.
+  const drops = [
+    [204, 1.04],
+    [188, 1.03],
+    [172, 1.07],
+    [156, 1.02],
+    [140, 1.05],
+    [124, 1.06],
+    [180, 1.01],
+    [164, 1.04],
+  ];
+  for (const [bpm, wait] of drops) {
+    advance(wait);
+    engine.setBpm(bpm);
+  }
+  advance(2);
+
+  live.sort((a, b) => a.time - b.time);
+  const floor = 60 / fastest;
+  for (let i = 1; i < live.length; i += 1) {
+    const gap = live[i].time - live[i - 1].time;
+    assert.ok(
+      gap >= floor - 1e-9,
+      `beats ${live[i - 1].count} and ${live[i].count} are ${gap.toFixed(4)}s apart, ` +
+        `closer than the ${floor.toFixed(4)}s of the fastest tempo used`,
+    );
+  }
+});
