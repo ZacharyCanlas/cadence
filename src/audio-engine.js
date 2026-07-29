@@ -254,18 +254,31 @@ export function createMetronome({
   }
 
   /**
-   * Re-plan at a new tempo without a phase jump: the beat that just sounded
-   * stays where it was and the new spacing runs on from there.
+   * Re-plan at a new tempo without a phase jump: the last beat that is still
+   * committed stays where it is and the new spacing runs on from there.
+   *
+   * That beat is not always the last one to have sounded. Anything inside the
+   * change lead is too close to the present to re-plan, so it survives the
+   * revoke and will still be heard. Anchoring on the last beat in the past
+   * instead would measure the new spacing from the wrong place, and a tempo
+   * drop -- where the new period is longer -- could then put the first new beat
+   * a few milliseconds after one of those survivors. Two clicks that close read
+   * as a stumble rather than as a tempo change.
    */
   function rebuildGrid(nextBpm) {
     const at = context.currentTime;
-    const elapsed = Math.max(0, Math.floor((at - anchor) / beatPeriod(bpm)));
-    const lastBeat = anchor + elapsed * beatPeriod(bpm);
+    const from = at + CHANGE_LEAD;
+    revokeFrom(from);
 
-    revokeFrom(at + CHANGE_LEAD);
+    const elapsed = Math.max(0, Math.floor((at - anchor) / beatPeriod(bpm)));
+    let lastBeat = anchor + elapsed * beatPeriod(bpm);
+    for (const beat of queued) {
+      if (beat.time > lastBeat) lastBeat = beat.time;
+    }
+
     anchor = lastBeat;
     bpm = nextBpm;
-    nextIndex = beatIndexAt(anchor, bpm, at + CHANGE_LEAD);
+    nextIndex = beatIndexAt(anchor, bpm, from);
     schedule();
   }
 
