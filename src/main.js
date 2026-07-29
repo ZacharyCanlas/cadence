@@ -37,6 +37,12 @@ const engine = createMetronome({
     // would otherwise grow for as long as the app is out of sight.
     if (pendingBeats.length > PENDING_LIMIT) drainPast();
   },
+  // A tempo change throws away what was queued and hands the same beat numbers
+  // out again. Dropping the originals keeps the step total honest; without
+  // this, every step of a ramp counts its lookahead twice.
+  onRevoke(fromCount) {
+    pendingBeats = pendingBeats.filter((beat) => beat.count < fromCount);
+  },
   onStateChange: paintStatus,
 });
 

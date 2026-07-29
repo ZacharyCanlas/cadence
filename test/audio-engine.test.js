@@ -165,3 +165,45 @@ test('the beat keeps vibrating once the page is hidden', async (t) => {
     `180bpm for 5s hidden is ~15 buzzes, got ${vibrations.length}`,
   );
 });
+
+test('a re-planned beat replaces the one it revoked rather than counting twice', async (t) => {
+  // Mirrors what main.js does with the beat feed: hold the scheduled beats,
+  // retire them as the clock passes them, and count each one as a step.
+  let pending = [];
+  const stepped = [];
+
+  const { engine, advance, context } = await createHarness(t, {
+    onBeats: (batch) => pending.push(...batch),
+    onRevoke: (fromCount) => {
+      pending = pending.filter((beat) => beat.count < fromCount);
+    },
+  });
+
+  /** The drain the animation loop performs each frame. */
+  function step(seconds) {
+    for (let done = 0; done < seconds * 10; done += 1) {
+      advance(0.1);
+      while (pending.length && pending[0].time <= context.currentTime) {
+        stepped.push(pending.shift().count);
+      }
+    }
+  }
+
+  engine.setBpm(180);
+  engine.start();
+  // Hidden is the case that matters: the lookahead stretches to six seconds, so
+  // a tempo change throws away far more committed beats than it does in front.
+  engine.setHidden(true);
+  step(2);
+
+  for (const bpm of [185, 190, 195, 200]) {
+    engine.setBpm(bpm);
+    step(3);
+  }
+
+  assert.equal(
+    new Set(stepped).size,
+    stepped.length,
+    `every step is counted once; ${stepped.length - new Set(stepped).size} were double-counted`,
+  );
+});

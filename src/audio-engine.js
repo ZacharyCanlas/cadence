@@ -51,9 +51,14 @@ const VIBRATE_ACCENT_MS = 90;
 /**
  * @param {object} handlers
  * @param {(beats: {index: number, time: number, accent: boolean}[]) => void} handlers.onBeats
+ * @param {(fromCount: number) => void} handlers.onRevoke beats from this count on never sounded
  * @param {() => void} handlers.onStateChange
  */
-export function createMetronome({ onBeats = () => {}, onStateChange = () => {} } = {}) {
+export function createMetronome({
+  onBeats = () => {},
+  onRevoke = () => {},
+  onStateChange = () => {},
+} = {}) {
   let context = null;
   let master = null;
 
@@ -163,6 +168,13 @@ export function createMetronome({ onBeats = () => {}, onStateChange = () => {} }
    * Revoke everything queued at or after `from` so it can be re-planned, and
    * hand the beat numbering back to where it was, so the accent pattern does
    * not shift when the tempo does.
+   *
+   * The revoked numbers are announced, because `schedule` will shortly hand out
+   * the same ones again for the re-planned beats. A listener holding beats it
+   * has not yet drawn or counted has no other way to tell the second beat 41
+   * from the first, and would treat both as having sounded. That matters most
+   * while hidden, where six seconds of beats are thrown away by every step of a
+   * cadence ramp.
    */
   function revokeFrom(from) {
     const kept = [];
@@ -176,7 +188,10 @@ export function createMetronome({ onBeats = () => {}, onStateChange = () => {} }
       if (earliestRevoked === null || beat.count < earliestRevoked) earliestRevoked = beat.count;
     }
     queued = kept;
-    if (earliestRevoked !== null) nextCount = earliestRevoked;
+    if (earliestRevoked !== null) {
+      nextCount = earliestRevoked;
+      onRevoke(earliestRevoked);
+    }
   }
 
   /**
