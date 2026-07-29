@@ -26,9 +26,12 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      # Pinned through .nvmrc so the runner's npm matches the one that wrote
+      # package-lock.json. `npm ci` refuses a lock file whose peer-dependency
+      # resolution differs from its own, which a floating major will drift into.
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm test
