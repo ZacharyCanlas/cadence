@@ -8,13 +8,13 @@
  * "Easy run" tells you when to use it and "170" does not.
  */
 
-export interface Preset {
+export type Preset = {
   bpm: number;
   label: string;
   hint: string;
 }
 
-export interface Accent {
+export type Accent = {
   every: number;
   label: string;
   hint: string;

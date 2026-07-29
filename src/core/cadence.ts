@@ -21,7 +21,7 @@
 import { clampBpm } from './beat-grid.ts';
 import { rampBpmAt } from './ramp.ts';
 
-export interface Cadence {
+export type Cadence = {
   /** The cadence you picked. What gets saved. */
   readonly chosen: number;
   /** The cadence sounding right now. Never saved. */

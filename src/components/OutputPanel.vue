@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { useMetronome } from '../composables/useMetronome.ts';
 import { useSettings } from '../composables/useSettings.ts';
 import { capabilities, isIOS } from '../platform/platform.ts';
-import ToggleSwitch from './ToggleSwitch.vue';
+import BaseToggleSwitch from './BaseToggleSwitch.vue';
 
 const { settings } = useSettings();
 const { setClick, setVibrate, setBackground } = useMetronome();
@@ -33,21 +33,21 @@ const backgroundHint = computed(() => {
   <section class="panel" aria-labelledby="outputLabel">
     <h2 id="outputLabel">Output</h2>
     <div class="switches">
-      <ToggleSwitch
+      <BaseToggleSwitch
         label="Click"
         hint="The sound you picked above"
         :checked="settings.click"
         :disabled="onlyClick"
         @change="setClick"
       />
-      <ToggleSwitch
+      <BaseToggleSwitch
         label="Vibrate"
         :hint="vibrateHint"
         :checked="settings.vibrate && capabilities.vibrate"
         :disabled="!capabilities.vibrate || onlyVibrate"
         @change="setVibrate"
       />
-      <ToggleSwitch
+      <BaseToggleSwitch
         label="Keep playing in the background"
         :hint="backgroundHint"
         :checked="settings.background"

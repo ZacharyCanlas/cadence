@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { useMetronome } from '../composables/useMetronome.ts';
 import { useSettings } from '../composables/useSettings.ts';
 import { findVoice, VOICES } from '../core/sounds.ts';
-import SegmentedGroup, { type SegmentedItem } from './SegmentedGroup.vue';
+import BaseSegmentedGroup, { type SegmentedItem } from './BaseSegmentedGroup.vue';
 
 const { settings } = useSettings();
 const { chooseVoice, setVolume } = useMetronome();
@@ -20,7 +20,7 @@ function onVolume(event: Event) {
 <template>
   <section class="panel" aria-labelledby="soundLabel">
     <h2 id="soundLabel">Sound</h2>
-    <SegmentedGroup
+    <BaseSegmentedGroup
       class="voices"
       aria-labelledby="soundLabel"
       :items="items"
@@ -46,3 +46,11 @@ function onVolume(event: Event) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.voices {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+}
+</style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, useTemplateRef } from 'vue';
 import { useMetronome } from '../composables/useMetronome.ts';
 import { useSettings } from '../composables/useSettings.ts';
 import { capabilities } from '../platform/platform.ts';
@@ -12,11 +12,21 @@ import { capabilities } from '../platform/platform.ts';
 
 defineProps<{ open: boolean }>();
 
+const panel = useTemplateRef('panel');
+
+// The parent scrolls the panel into view on open; exposing the action rather
+// than the element keeps the DOM private to this component.
+defineExpose({
+  scrollIntoView() {
+    panel.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+});
+
 const { settings } = useSettings();
 const { running, contextState, keepAlivePlaying, wakeLockHeld, usingWorkerPump, wakeLockSupported } =
   useMetronome();
 
-interface Check {
+type Check = {
   tone: 'good' | 'warn' | 'idle';
   title: string;
   detail: string;
@@ -91,7 +101,7 @@ const checks = computed<Check[]>(() => {
 </script>
 
 <template>
-  <section id="statusPanel" class="panel status" aria-labelledby="statusLabel" :hidden="!open">
+  <section ref="panel" id="statusPanel" class="panel status" aria-labelledby="statusLabel" :hidden="!open">
     <h2 id="statusLabel">Status</h2>
     <ul class="checks">
       <li v-for="(check, index) in checks" :key="index" class="check" :data-tone="check.tone">
@@ -108,3 +118,51 @@ const checks = computed<Check[]>(() => {
     </p>
   </section>
 </template>
+
+<style scoped>
+.checks {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-3);
+  align-items: start;
+  font-size: var(--text-sm);
+}
+
+.check .dot {
+  flex: 0 0 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.42rem;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.check[data-tone='good'] .dot {
+  background: var(--good);
+}
+
+.check[data-tone='warn'] .dot {
+  background: var(--warn);
+}
+
+.check-text {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.check-text b {
+  font-weight: 600;
+}
+
+.check-detail {
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+</style>

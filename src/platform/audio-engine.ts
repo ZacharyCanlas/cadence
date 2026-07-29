@@ -49,7 +49,7 @@ const VIBRATE_MS = 45;
 const VIBRATE_ACCENT_MS = 90;
 
 /** A beat the engine has committed to the audio clock, as announced to listeners. */
-export interface EngineBeat {
+export type EngineBeat = {
   index: number;
   time: number;
   count: number;
@@ -60,7 +60,7 @@ export interface EngineBeat {
  * A committed beat and the handles needed to revoke it: the per-beat gain
  * node, and the haptic timer if one is armed yet.
  */
-interface QueuedBeat {
+type QueuedBeat = {
   time: number;
   count: number;
   accent: boolean;
@@ -68,14 +68,14 @@ interface QueuedBeat {
   vibeTimer: ReturnType<typeof setTimeout> | null;
 }
 
-export interface MetronomeHandlers {
+export type MetronomeHandlers = {
   onBeats?: (beats: EngineBeat[]) => void;
   /** Beats from this count on never sounded. */
   onRevoke?: (fromCount: number) => void;
   onStateChange?: () => void;
 }
 
-export interface Metronome {
+export type Metronome = {
   readonly running: boolean;
   readonly bpm: number;
   readonly contextState: string;

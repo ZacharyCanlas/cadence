@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { useMetronome } from '../composables/useMetronome.ts';
 import { useSettings } from '../composables/useSettings.ts';
 import { ACCENTS } from '../core/presets.ts';
-import SegmentedGroup, { type SegmentedItem } from './SegmentedGroup.vue';
+import BaseSegmentedGroup, { type SegmentedItem } from './BaseSegmentedGroup.vue';
 
 const { settings } = useSettings();
 const { chooseAccent } = useMetronome();
@@ -18,7 +18,7 @@ const hint = computed(
 <template>
   <section class="panel" aria-labelledby="accentLabel">
     <h2 id="accentLabel">Accent</h2>
-    <SegmentedGroup
+    <BaseSegmentedGroup
       class="accents"
       aria-labelledby="accentLabel"
       :items="items"
@@ -28,3 +28,11 @@ const hint = computed(
     <p class="hint">{{ hint }}</p>
   </section>
 </template>
+
+<style scoped>
+.accents {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+}
+</style>

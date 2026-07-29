@@ -4,7 +4,7 @@ import { useMetronome } from '../composables/useMetronome.ts';
 import { useSettings } from '../composables/useSettings.ts';
 import { MAX_BPM, MIN_BPM } from '../core/beat-grid.ts';
 import { MAX_RAMP_MINUTES, MIN_RAMP_MINUTES, rampDone, rampProgress } from '../core/ramp.ts';
-import ToggleSwitch from './ToggleSwitch.vue';
+import BaseToggleSwitch from './BaseToggleSwitch.vue';
 
 const { settings, update } = useSettings();
 const { running, elapsed, setRampOn } = useMetronome();
@@ -34,7 +34,7 @@ function onMinutes(event: Event) {
       few steps per minute at a time sticks better than jumping to the number.
     </p>
     <div class="switches">
-      <ToggleSwitch
+      <BaseToggleSwitch
         label="Ramp the cadence"
         hint="Climb from where you start to the target"
         :checked="settings.rampOn"
@@ -77,3 +77,37 @@ function onMinutes(event: Event) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.ramp-fields {
+  margin-top: var(--space-4);
+  transition: opacity var(--base) var(--ease);
+}
+
+.ramp-fields[data-enabled='false'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ramp-progress {
+  margin-top: var(--space-4);
+}
+
+.track {
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
+  background: var(--raise);
+  overflow: hidden;
+}
+
+/* Scaled rather than resized: animating width would relayout on every tick. */
+.fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+</style>

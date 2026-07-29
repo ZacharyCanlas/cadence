@@ -9,7 +9,7 @@
 
 import { capabilities } from './platform.ts';
 
-export interface WakeLock {
+export type WakeLock = {
   readonly supported: boolean;
   readonly held: boolean;
   request(): Promise<boolean>;

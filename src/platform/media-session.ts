@@ -9,12 +9,12 @@
 
 import { capabilities } from './platform.ts';
 
-export interface MediaSessionHandlers {
+export type MediaSessionHandlers = {
   onPlay: () => void;
   onStop: () => void;
 }
 
-export interface MediaSessionControls {
+export type MediaSessionControls = {
   readonly supported: boolean;
   activate(bpm: number): void;
   deactivate(): void;

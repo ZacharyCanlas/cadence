@@ -1,6 +1,6 @@
 <script lang="ts">
 /** One choice in a segmented radio row. */
-export interface SegmentedItem {
+export type SegmentedItem = {
   value: string | number;
   label: string;
   sub?: string;
@@ -55,3 +55,48 @@ function onKeydown(event: KeyboardEvent) {
     </button>
   </div>
 </template>
+
+<style scoped>
+.option {
+  display: grid;
+  gap: 0.05rem;
+  justify-items: center;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  transition:
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease);
+}
+
+.option:hover {
+  border-color: var(--line-strong);
+}
+
+.option[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.option-label {
+  font-weight: 600;
+}
+
+.option-sub {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.option[aria-checked='true'] .option-sub {
+  color: inherit;
+  opacity: 0.85;
+}
+</style>

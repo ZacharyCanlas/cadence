@@ -19,7 +19,7 @@ const WORKER_SOURCE = `
   };
 `;
 
-export interface Pump {
+export type Pump = {
   readonly usingWorker: boolean;
   start(intervalMs: number): void;
   stop(): void;

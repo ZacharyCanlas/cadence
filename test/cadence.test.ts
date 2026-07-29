@@ -5,7 +5,7 @@ import { createCadence, type Cadence } from '../src/core/cadence.ts';
 import { load, memoryStorage, save } from '../src/core/settings.ts';
 
 /** The slice of the settings a ramp reads. */
-interface RampSettings {
+type RampSettings = {
   rampTo: number;
   rampMinutes: number;
 }

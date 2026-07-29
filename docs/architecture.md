@@ -8,37 +8,38 @@ How the app is put together, and the reasoning behind the structural choices.
 index.html               Vite entry; head only, Vue owns the body
 vite.config.ts           Vue plugin + PWA manifest and Workbox config
 src/
-  main.ts                createApp, styles, service worker registration
-  App.vue                the one screen: hero, panels, dock
-  styles.css             design tokens and every component (unchanged by Vue)
-  core/                  pure logic; no DOM, no audio, no Vue
-    beat-grid.ts         pure beat maths (anchor + n * period)
-    cadence.ts           the cadence chosen vs the cadence sounding
-    ramp.ts              pure cadence-ramp maths
-    tap-tempo.ts         pure rolling-average tap detection
-    settings.ts          validated, persisted settings
-    sounds.ts            the eight synthesised voices
-    presets.ts           training presets and accent patterns
-    format.ts            clock and step-count formatting
-  platform/              thin wrappers around browser APIs; no Vue either
-    audio-engine.ts      the scheduler; queues revocable beats on the audio clock
-    platform.ts          feature detection and the Audio Session wrapper
-    keep-alive.ts        the media element that keeps the page resident
-    media-session.ts     lock screen controls
-    wake-lock.ts         screen wake lock
-    pump.ts              worker-backed scheduler heartbeat
+  main.ts                    createApp, base styles, service worker registration
+  App.vue                    the one screen: hero, panels, dock
+  assets/base.css            tokens, reset, and the patterns shared by 2+ components
+  core/                      pure logic; no DOM, no audio, no Vue
+    beat-grid.ts             pure beat maths (anchor + n * period)
+    beat-feed.ts             pending-beat bookkeeping and the honest step count
+    cadence.ts               the cadence chosen vs the cadence sounding
+    ramp.ts                  pure cadence-ramp maths
+    tap-tempo.ts             pure rolling-average tap detection
+    settings.ts              validated, persisted settings
+    sounds.ts                the eight synthesised voices
+    presets.ts               training presets and accent patterns
+    format.ts                clock and step-count formatting
+  platform/                  thin wrappers around browser APIs; no Vue either
+    audio-engine.ts          the scheduler; queues revocable beats on the audio clock
+    platform.ts              feature detection and the Audio Session wrapper
+    keep-alive.ts            the media element that keeps the page resident
+    media-session.ts         lock screen controls
+    wake-lock.ts             screen wake lock
+    pump.ts                  worker-backed scheduler heartbeat
   composables/
-    useSettings.ts       the settings object made reactive, persistence on write
-    useMetronome.ts      the one engine instance, mirrored into refs; all actions
-  components/
-    BeatRing.vue         the pulsing ring, beat markers, big number
-    TempoControl.vue     minus / slider / plus
-    TapTempoButton.vue   tap-your-stride reader
-    SegmentedGroup.vue   accessible radio row (presets, voices, accents)
-    ToggleSwitch.vue     accessible switch row
-    *Panel.vue           one component per panel of the setup surface
-public/                  icons and the legacy service worker cleanup script
-test/                    node --test, still zero dependencies (type stripping)
+    useSettings.ts           the settings object made reactive, persistence on write
+    useMetronome.ts          the one engine instance, mirrored into refs; all actions
+  components/                each carries its own scoped styles
+    BeatRing.vue             the pulsing ring, beat markers, big number
+    CadenceControl.vue       minus / slider / plus
+    TapTempoButton.vue       tap-your-stride reader
+    BaseSegmentedGroup.vue   accessible radio row (presets, voices, accents)
+    BaseToggleSwitch.vue     accessible switch row
+    *Panel.vue               one component per panel of the setup surface
+public/                      icons and the legacy service worker cleanup script
+test/                        node --test, still zero dependencies (type stripping)
 ```
 
 ## The organising principle
@@ -86,6 +87,14 @@ shared through composable singletons rather than a store library (Pinia earns
 its place when there are multiple stores or devtools needs; one screen with
 one engine does not need it), props down and events up, and reactive state
 mirrored out of the engine rather than the engine made reactive.
+
+Styles are colocated: each component owns its rules in a `<style scoped>`
+block, and `assets/base.css` holds only what is genuinely shared — tokens,
+the reset, and the patterns used by more than one component (panel
+scaffolding, hints, slider rows). Reusable presentational primitives carry
+the style guide's `Base` prefix. Type declarations default to `type`;
+`interface` appears only where declaration merging is the point, i.e. the
+global browser-API augmentations in `types/platform-extras.d.ts`.
 
 ## The scheduling model
 
@@ -164,8 +173,11 @@ The DOM is still left out, and the Vue layer with it: `useMetronome.ts` and
 the components are the largest untested surface in the app. The way to shrink
 it is the way `core/cadence.ts` was arrived at: when a defect turns out to be
 untestable, move the rule it broke into a module with no DOM in it, rather
-than fixing it in place and hoping. (Component tests via Vitest and
-@vue/test-utils are the alternative if that ever stops being enough.)
+than fixing it in place and hoping. `core/beat-feed.ts` is that move applied
+to the pending-beat bookkeeping — the drain, the step count, and the
+revocation drop are now pinned by tests instead of read for correctness.
+(Component tests via Vitest and @vue/test-utils are the alternative if that
+ever stops being enough.)
 
 Writing tests keeps finding defects in code that looked obviously correct. The
 pure modules gave up two: `beatIndexAt` returned `-0` at the grid origin, which
@@ -217,7 +229,7 @@ repository directly.
 
 ## Design system
 
-Tokens live at the top of `src/styles.css`. The layout treats the screen as two
+Tokens live at the top of `src/assets/base.css`. The layout treats the screen as two
 surfaces: the top is an instrument, read at arm's length in daylight while
 moving, and gets the size and contrast; the bottom is setup, read standing
 still, and gets the density.

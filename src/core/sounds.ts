@@ -11,11 +11,11 @@
  * a voice can be queued seconds ahead without changing how it sounds.
  */
 
-export interface VoicePlayOptions {
+export type VoicePlayOptions = {
   accent?: boolean;
 }
 
-export interface Voice {
+export type Voice = {
   id: string;
   label: string;
   hint: string;
@@ -52,7 +52,7 @@ function decay(context: AudioContext, time: number, peak: number, seconds: numbe
   return gain;
 }
 
-interface ToneShape {
+type ToneShape = {
   type: OscillatorType;
   from: number;
   to: number;

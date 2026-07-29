@@ -53,7 +53,7 @@ function buildLoopUrl(): string {
   return URL.createObjectURL(encodeWav(samples, SAMPLE_RATE));
 }
 
-export interface KeepAlive {
+export type KeepAlive = {
   /** Must be called from a user gesture, same as any media playback. */
   start(): Promise<boolean>;
   stop(): void;

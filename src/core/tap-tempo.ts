@@ -14,12 +14,12 @@ export const TAP_WINDOW = 6;
 export const MIN_TAPS = 3;
 
 /** `bpm` stays null until the reading settles. */
-export interface TapReading {
+export type TapReading = {
   bpm: number | null;
   taps: number;
 }
 
-export interface TapTempo {
+export type TapTempo = {
   /** @param now milliseconds, from any monotonic-ish clock */
   tap(now: number): TapReading;
   reset(): void;

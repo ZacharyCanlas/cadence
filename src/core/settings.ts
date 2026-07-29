@@ -11,7 +11,7 @@ import { DEFAULT_VOICE, voiceIds } from './sounds.ts';
 
 const KEY = 'cadence.settings.v1';
 
-export interface Settings {
+export type Settings = {
   bpm: number;
   volume: number;
   click: boolean;
@@ -27,7 +27,7 @@ export interface Settings {
 }
 
 /** The slice of the Storage interface the app relies on, so a Map can stand in. */
-export interface StorageLike {
+export type StorageLike = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useMetronome } from '../composables/useMetronome.ts';
 import { PRESETS } from '../core/presets.ts';
-import SegmentedGroup, { type SegmentedItem } from './SegmentedGroup.vue';
+import BaseSegmentedGroup, { type SegmentedItem } from './BaseSegmentedGroup.vue';
 
 const { currentBpm, setBpm } = useMetronome();
 
@@ -21,7 +21,7 @@ const hint = computed(() => {
 <template>
   <section class="panel" aria-labelledby="presetsLabel">
     <h2 id="presetsLabel">Presets</h2>
-    <SegmentedGroup
+    <BaseSegmentedGroup
       class="presets"
       aria-labelledby="presetsLabel"
       :items="items"
@@ -31,3 +31,12 @@ const hint = computed(() => {
     <p class="hint">{{ hint }}</p>
   </section>
 </template>
+
+<style scoped>
+/* Styles the group component's root, which inherits this scope. */
+.presets {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(3, 1fr);
+}
+</style>

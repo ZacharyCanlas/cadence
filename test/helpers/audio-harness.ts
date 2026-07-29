@@ -171,7 +171,7 @@ export function createFakeContext(): FakeAudioContext {
   return new FakeAudioContext();
 }
 
-export interface VibrationRecord {
+export type VibrationRecord = {
   at: number;
   pattern: number;
 }
@@ -214,7 +214,7 @@ Object.defineProperty(globalThis, 'navigator', {
   },
 });
 
-export interface Harness {
+export type Harness = {
   engine: Metronome;
   context: FakeAudioContext;
   beats: EngineBeat[];

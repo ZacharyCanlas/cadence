@@ -15,6 +15,7 @@
  */
 
 import { readonly, ref, type Ref } from 'vue';
+import { createBeatFeed } from '../core/beat-feed.ts';
 import { createCadence } from '../core/cadence.ts';
 import { createMetronome, type EngineBeat } from '../platform/audio-engine.ts';
 import { createKeepAlive } from '../platform/keep-alive.ts';
@@ -26,7 +27,7 @@ import { useSettings } from './useSettings.ts';
 /** Beats queued far enough ahead that the queue is worth draining eagerly. */
 const PENDING_LIMIT = 256;
 
-export interface MetronomeStore {
+export type MetronomeStore = {
   readonly running: Readonly<Ref<boolean>>;
   readonly currentBpm: Readonly<Ref<number>>;
   readonly elapsed: Readonly<Ref<number>>;
@@ -69,8 +70,8 @@ function createInstance(): MetronomeStore {
   const wakeLockHeld = ref(false);
   const announcement = ref('');
 
-  /** Beats scheduled but not yet reached, drained by the animation loop. */
-  let pendingBeats: EngineBeat[] = [];
+  /** The tested bookkeeping for scheduled-but-not-yet-heard beats. */
+  const feed = createBeatFeed<EngineBeat>();
   let frame: number | null = null;
   let clockTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -78,18 +79,13 @@ function createInstance(): MetronomeStore {
 
   const engine = createMetronome({
     onBeats(beats) {
-      pendingBeats.push(...beats);
+      feed.enqueue(beats);
       // The animation loop is what normally drains this, and the browser stops
       // running it while the page is hidden. On a long background run the queue
       // would otherwise grow for as long as the app is out of sight.
-      if (pendingBeats.length > PENDING_LIMIT) drainPast();
+      if (feed.pending > PENDING_LIMIT) drainPast();
     },
-    // A tempo change throws away what was queued and hands the same beat numbers
-    // out again. Dropping the originals keeps the step total honest; without
-    // this, every step of a ramp counts its lookahead twice.
-    onRevoke(fromCount) {
-      pendingBeats = pendingBeats.filter((beat) => beat.count < fromCount);
-    },
+    onRevoke: (fromCount) => feed.revokeFrom(fromCount),
     onStateChange: syncStatus,
   });
 
@@ -133,9 +129,9 @@ function createInstance(): MetronomeStore {
 
     cadence.beginRun();
     currentBpm.value = cadence.current;
+    feed.reset();
     stepCount.value = 0;
     elapsed.value = 0;
-    pendingBeats = [];
 
     // Ordering matters: the audio session type has to be set before the context
     // starts, and the keep-alive element has to be played inside the same user
@@ -190,16 +186,12 @@ function createInstance(): MetronomeStore {
 
   /**
    * Retire every beat that has now sounded and report the last one, which is
-   * the one worth showing. Counting happens here rather than in the animation
-   * loop so the step total stays right while the page is hidden.
+   * the one worth showing. Counting happens in the feed rather than in the
+   * animation loop so the step total stays right while the page is hidden.
    */
   function drainPast(): EngineBeat | null {
-    const now = engine.time;
-    let last: EngineBeat | null = null;
-    while (pendingBeats.length && pendingBeats[0].time <= now) {
-      last = pendingBeats.shift() as EngineBeat;
-      stepCount.value += 1;
-    }
+    const last = feed.drainPast(engine.time);
+    stepCount.value = feed.steps;
     return last;
   }
 

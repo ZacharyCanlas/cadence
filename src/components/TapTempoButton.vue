@@ -25,3 +25,35 @@ function onTap() {
     <span class="tap-hint">{{ hint }}</span>
   </button>
 </template>
+
+<style scoped>
+.tap {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-3);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius);
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-2);
+  text-align: center;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.tap:hover,
+.tap:active {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.tap-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tap-hint {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+</style>

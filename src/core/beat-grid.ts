@@ -18,7 +18,7 @@ export const DEFAULT_BPM = 180;
 export const MAX_BEATS_PER_PASS = 256;
 
 /** A slot on the grid: which slot it is, and where it falls on the audio clock. */
-export interface GridBeat {
+export type GridBeat = {
   index: number;
   time: number;
 }
