@@ -1,6 +1,7 @@
 # The app is now built by Vite, so GitHub Pages serves the dist/ artifact from
-# this workflow rather than the repository itself. Enable Pages with
-# "GitHub Actions" as the source for this to take effect.
+# this workflow rather than the repository itself. The configure-pages step
+# switches the Pages source to Actions if it is not already set, so a fresh
+# clone of this repository deploys without anyone visiting the settings page.
 name: Deploy to GitHub Pages
 
 on:
@@ -22,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/setup-node@v4
         with:
           node-version: 24
