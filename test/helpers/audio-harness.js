@@ -181,9 +181,10 @@ Object.defineProperty(globalThis, 'navigator', {
  * Build an engine wired to a fake clock.
  *
  * @param {import('node:test').TestContext} t
+ * @param {object} [handlers] engine callbacks to observe alongside the harness's own
  * @returns {Promise<object>} the engine plus the observations a test asserts on
  */
-export async function createHarness(t) {
+export async function createHarness(t, handlers = {}) {
   const context = new FakeAudioContext();
   currentContext = context;
   currentVibrations = [];
@@ -195,11 +196,21 @@ export async function createHarness(t) {
   const { createMetronome } = await import('../../src/audio-engine.js');
 
   const beats = [];
+  /** Beat counts handed back as revoked, in order. */
+  const revocations = [];
   let stateChanges = 0;
   const engine = createMetronome({
-    onBeats: (batch) => beats.push(...batch),
+    onBeats: (batch) => {
+      beats.push(...batch);
+      handlers.onBeats?.(batch);
+    },
+    onRevoke: (fromCount) => {
+      revocations.push(fromCount);
+      handlers.onRevoke?.(fromCount);
+    },
     onStateChange: () => {
       stateChanges += 1;
+      handlers.onStateChange?.();
     },
   });
 
@@ -214,6 +225,7 @@ export async function createHarness(t) {
     engine,
     context,
     beats,
+    revocations,
     vibrations: currentVibrations,
     sessions: currentSessions,
     get stateChanges() {
