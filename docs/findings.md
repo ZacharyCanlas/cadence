@@ -63,6 +63,33 @@ a device.
 
 ## Confirmed on a device
 
-Nothing yet. Findings that need the device checklist in
-[background-audio.md](background-audio.md#verifying-on-a-device) belong here once
-they have been through it.
+**No audio session type lets iOS Safari mix with another app.** Run on 1 August
+2026: iPhone, iOS 18.7.5, Safari 18.7.5, in a tab rather than from the home
+screen. A throwaway `?session=` override drove `ambient`, `playback`,
+`transient` and `transient-solo` from one deployed build, and the status panel
+logged what `navigator.audioSession.type` read back after each assignment.
+
+Safari accepted all four values and read every one of them back unchanged, so
+nothing was rejected and nothing was coerced. Spotify stopped on all four. Only
+`playback` carried the beat through an app switch. `transient`, the type the run
+existed to test, took the output from Spotify and still died in the background,
+which makes it worse than `playback` rather than better.
+
+`ambient` is the result that matters most, because
+[background-audio.md](background-audio.md) claimed it mixes and it does not.
+That claim came from reading the spec, not from a phone. Turning **Keep playing
+in the background** off does not give your music back on this version; it only
+costs you the beat. The table there now reports what was measured.
+
+Two loose ends. `navigator.audioSession.state` never reported a value on 18.7.5,
+so the spec's session state is either unimplemented or invisible from a tab.
+And the `?session=` override cannot reach a home screen launch, because the
+manifest's `start_url` drops the query string, so whether an installed PWA
+behaves differently from a tab is untested.
+
+Two places still tell you the old story. The **Keep playing in the background**
+switch offers mixing as the thing you get for turning it off, in
+`src/components/StatusPanel.vue` and in the hint under the switch, and the
+comment at the top of `src/platform/platform.ts` describes `ambient` as mixing.
+Both need rewording, which is a decision about what to promise rather than a
+correction to make in passing.

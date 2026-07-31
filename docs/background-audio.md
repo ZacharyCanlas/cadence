@@ -109,28 +109,38 @@ is the only way to find out what a given device does.
 
 ### iOS, Safari
 
-Background playback and mixing with other audio are **mutually exclusive**.
-This is the significant constraint in the whole app, and it is not something
-better engineering can route around.
+The beat keeps time in the background. Your music does not survive it, and no
+session type changes that. This is the significant constraint in the whole app,
+and it is not something better engineering can route around.
 
 Safari's [Audio Session API](https://github.com/w3c/audio-session/blob/main/explainer.md)
-exposes a session type, and the two relevant values behave like this:
+exposes a session type, which the app sets before it builds the audio context.
+Every type Safari accepts was measured on iOS 18.7.5, in a tab:
 
-| Type | Mixes with other audio | Survives backgrounding | Silenced by the ringer switch |
-| --- | --- | --- | --- |
-| `ambient` | Yes | No | Yes |
-| `playback` | No | Yes | No |
+| Type | Your music keeps playing | Beat survives an app switch |
+| --- | --- | --- |
+| `ambient` | No | No |
+| `playback` | No | Yes |
+| `transient` | No | No |
+| `transient-solo` | No | No |
 
-Native apps get around this by combining the `playback` category with the
-`mixWithOthers` option, which is exactly the pairing a running metronome wants.
-The web does not expose that option. Every native running metronome that keeps
-playing over Spotify with the screen locked is using an API the browser does
-not offer.
+Each value read back from `navigator.audioSession.type` unchanged, so Safari
+rejected none of them and coerced none of them. They take sole use of the
+output regardless. `transient`, which the spec describes as audio that plays on
+top of playback audio, drops the background beat and keeps the exclusive focus,
+so it is worse than `playback` on both counts. The ringer switch was not part
+of that run.
 
-So the app surfaces the choice instead of pretending it does not exist. The
-**Keep playing in the background** switch selects the session type, the
-consequence is written under the switch, and the status panel reports which
-case the current device is in.
+Native apps combine the `playback` category with the `mixWithOthers` option,
+which is exactly the pairing a running metronome wants. The web does not expose
+that option, and no session type stands in for it. Every native running
+metronome that keeps playing over Spotify with the screen locked is using an
+API the browser does not offer.
+
+`playback` is the only type worth setting here. The **Keep playing in the
+background** switch still chooses between `playback` and `ambient`, so turning
+it off costs you the background beat without buying your music back. See
+[findings.md](findings.md#confirmed-on-a-device) for the run behind the table.
 
 ### Both platforms
 
@@ -149,8 +159,8 @@ test is what the mobile OS does to a backgrounded page. On a phone:
    Cadence with a stop control.
 4. Leave it locked for several minutes. The beat should not drift or stutter.
 
-If the music pauses on iPhone, that is the session type trade above. Turning
-off background mode restores mixing and gives up screen-off playback.
+The music pausing on iPhone is not a switch you have set wrong. It pauses on
+every session type, and turning off background mode does not bring it back.
 
 ## Sources
 
