@@ -63,33 +63,38 @@ a device.
 
 ## Confirmed on a device
 
-**No audio session type lets iOS Safari mix with another app.** Run on 1 August
-2026: iPhone, iOS 18.7.5, Safari 18.7.5, in a tab rather than from the home
-screen. A throwaway `?session=` override drove `ambient`, `playback`,
-`transient` and `transient-solo` from one deployed build, and the status panel
-logged what `navigator.audioSession.type` read back after each assignment.
+**A Safari tab and a home screen launch do not behave the same.** Run on 1
+August 2026: iPhone, iOS 18.7.5, Safari 18.7.5.
 
-Safari accepted all four values and read every one of them back unchanged, so
-nothing was rejected and nothing was coerced. Spotify stopped on all four. Only
-`playback` carried the beat through an app switch. `transient`, the type the run
-existed to test, took the output from Spotify and still died in the background,
-which makes it worse than `playback` rather than better.
+Installed to the home screen, with **Keep playing in the background** off,
+Spotify keeps playing and the clicks sit on top of it. The beat stops on an app
+switch or a screen lock, which is what `ambient` promises. That is the documented
+trade, working as documented, and it is the first time anyone has seen it work.
 
-`ambient` is the result that matters most, because
-[background-audio.md](background-audio.md) claimed it mixes and it does not.
-That claim came from reading the spec, not from a phone. Turning **Keep playing
-in the background** off does not give your music back on this version; it only
-costs you the beat. The table there now reports what was measured.
+Open the same build in a tab and `ambient` stops Spotify. Safari read the type
+back as `ambient` at the moment of assignment, so the value was accepted and
+kept. It just did not mean anything. Whatever decides mixing in a tab is not the
+session type.
 
-Two loose ends. `navigator.audioSession.state` never reported a value on 18.7.5,
-so the spec's session state is either unimplemented or invisible from a tab.
-And the `?session=` override cannot reach a home screen launch, because the
-manifest's `start_url` drops the query string, so whether an installed PWA
-behaves differently from a tab is untested.
+**The four-type comparison is void.** A throwaway `?session=` override drove
+`ambient`, `playback`, `transient` and `transient-solo` from one deployed build,
+and the status panel logged the readback for each. In a tab, Spotify stopped on
+all four and only `playback` survived an app switch, which reads like a clean
+negative result for `transient`. It is not one. The control failed in that
+environment, so all four rows describe a tab rather than a session type, and
+`transient` has never been tested where the type demonstrably does something.
 
-Two places still tell you the old story. The **Keep playing in the background**
-switch offers mixing as the thing you get for turning it off, in
-`src/components/StatusPanel.vue` and in the hint under the switch, and the
-comment at the top of `src/platform/platform.ts` describes `ambient` as mixing.
-Both need rewording, which is a decision about what to promise rather than a
-correction to make in passing.
+Re-running it from the home screen is the open question, and the `?session=`
+trick does not reach there: the manifest's `start_url` is `"."`, so iOS drops
+the query string on a home screen launch. Testing the other three types
+installed needs the type set some other way.
+
+Loose ends. `navigator.audioSession.state` never reported a value on 18.7.5, so
+the spec's session state is either unimplemented or invisible from the web. The
+ringer switch was not tested. `playback` from the home screen was not tested
+against another app's audio either, only in a tab.
+
+One thing to fix whichever way the re-test goes: nothing in the app tells you
+that installing it changes what the switch does. The hint under the switch, the
+status panel and the README all describe mixing without mentioning that a tab
+will not do it.
