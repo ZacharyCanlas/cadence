@@ -1,5 +1,14 @@
-node_modules/
-dist/
-dev-dist/
 .playwright-mcp/
 .DS_Store
+.gradle/
+.kotlin/
+build/
+local.properties
+*.jks
+*.keystore
+*.apk
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/*.local.json
+app/src/test/snapshots/
+.impeccable/questions/

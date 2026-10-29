@@ -4,241 +4,241 @@ How the app is put together, and the reasoning behind the structural choices.
 
 ## Layout
 
+One Gradle module, `:app`, at the repository root. Version pins live in
+`gradle/libs.versions.toml`; SDK levels, R8 and the release signing check live
+in `app/build.gradle.kts`.
+
 ```
-index.html               Vite entry; head only, Vue owns the body
-vite.config.ts           Vue plugin + PWA manifest and Workbox config
-src/
-  main.ts                    createApp, base styles, service worker registration
-  App.vue                    the one screen: hero, panels, dock
-  assets/base.css            tokens, reset, and the patterns shared by 2+ components
-  core/                      pure logic; no DOM, no audio, no Vue
-    beat-grid.ts             pure beat maths (anchor + n * period)
-    beat-feed.ts             pending-beat bookkeeping and the honest step count
-    cadence.ts               the cadence chosen vs the cadence sounding
-    ramp.ts                  pure cadence-ramp maths
-    tap-tempo.ts             pure rolling-average tap detection
-    settings.ts              validated, persisted settings
-    sounds.ts                the eight synthesised voices
-    presets.ts               training presets and accent patterns
-    format.ts                clock and step-count formatting
-  platform/                  thin wrappers around browser APIs; no Vue either
-    audio-engine.ts          the scheduler; queues revocable beats on the audio clock
-    platform.ts              feature detection and the Audio Session wrapper
-    keep-alive.ts            the media element that keeps the page resident
-    media-session.ts         lock screen controls
-    wake-lock.ts             screen wake lock
-    pump.ts                  worker-backed scheduler heartbeat
-  composables/
-    useSettings.ts           the settings object made reactive, persistence on write
-    useMetronome.ts          the one engine instance, mirrored into refs; all actions
-  components/                each carries its own scoped styles
-    BeatRing.vue             the pulsing ring, beat markers, big number
-    CadenceControl.vue       minus / slider / plus
-    TapTempoButton.vue       tap-your-stride reader
-    BaseSegmentedGroup.vue   accessible radio row (presets, voices, accents)
-    BaseToggleSwitch.vue     accessible switch row
-    *Panel.vue               one component per panel of the setup surface
-public/                      icons and the legacy service worker cleanup script
-test/                        node --test, still zero dependencies (type stripping)
+app/src/main/kotlin/io/github/zacharycanlas/cadence/
+  CadenceApp.kt              Application; owns the one MetronomeController
+  MainActivity.kt            the one Activity: frame-clocked flash, permission prompt, snackbars
+  core/                      pure Kotlin; imports nothing from android.*
+    BeatGrid.kt              cadence range and beat maths (anchor + n * period)
+    Renderer.kt              writes the beat into the PCM stream; the frame clock
+    Voices.kt                the eight synthesised voices, biquads and noise
+    BeatFeed.kt              written beats waiting to be heard, and the honest step count
+    Cadence.kt               the cadence chosen vs the cadence sounding, and the ramp hold
+    Ramp.kt                  cadence-ramp maths
+    TapTempo.kt              rolling-average tap detection
+    Settings.kt              validated settings over a typed key-value store
+    Presets.kt               preset cadences and accent values
+    Format.kt                clock and number formatting
+  run/
+    MetronomeController.kt   the process-wide metronome: run state, settings, StateFlows
+    PlaybackClock.kt         maps now to the stream frame being heard
+    Ports.kt                 AudioOutput, Haptics, RunHost: how the controller reaches Android
+    RunService.kt            foreground service: notification, disconnect receiver, call watcher
+  platform/                  thin wrappers around Android APIs
+    TrackOutput.kt           the AudioTrack, which never requests audio focus
+    VibratorHaptics.kt       USAGE_ALARM one-shots posted on a HandlerThread
+    PrefsStorage.kt          SharedPreferences behind SettingsStorage
+  ui/
+    CadenceScreen.kt         the one screen: band, modules, docked Start/Stop
+    Theme.kt                 colour roles, band colours, Barlow Condensed figures
+app/src/main/res/            every user-facing string, icons, the bundled font
+app/src/test/kotlin/         JUnit 4: core, the controller against fakes, screenshots
+third_party/barlow-condensed/ the font's licence
 ```
 
 ## The organising principle
 
 Modules fall into three groups, and the split is what makes the app testable.
 
-**Pure logic, no DOM and no audio.** Everything in `src/core/`. This is the
-code that is easy to get quietly wrong and hard to notice on a run: an
-off-by-one in beat numbering or a ramp that overshoots its target will not
-throw an error, it will just be subtly incorrect for forty minutes. All of it
-is unit tested, and none of it imports Vue.
+**Pure logic, no Android.** Everything in `core/`. This is the code that is
+easy to get wrong without anyone noticing on a run: an off-by-one in beat
+numbering or a ramp that overshoots its target throws no error, it sounds
+wrong for forty minutes. All of it runs under plain JUnit. The renderer
+belongs here too: it fills a buffer and reports the beats it started, so tests
+drive it frame by frame with no audio device.
 
-**Thin wrappers around browser APIs.** Everything in `src/platform/`. Each is
-small enough to read in one sitting and does nothing clever, because the
-browser is already doing the complicated part. These are verified in a real
-browser, not mocked. `audio-engine.ts` sits between the two groups and is
-tested against a fake clock.
+**Thin wrappers around Android APIs.** Everything in `platform/`, and
+`RunService`. Each is small enough to read in one sitting and does nothing
+clever, because the OS does the complicated part. We verify these on a phone
+rather than mock them.
 
-**The Vue layer.** `useMetronome.ts` is the old composition root reborn: it
-owns the single engine instance, mirrors the state templates need into refs,
-and holds every invariant the controls rely on (engine first, then persist
-what it actually applied; ramp output never saved; the keep-alive element
-started inside the user gesture). Components stay declarative and dumb; the
-one deliberate exception is the ring flash in `BeatRing.vue`, which stays
-imperative because a class binding cannot restart a CSS animation reliably.
+**The controller and the screen.** `MetronomeController` is the composition
+root. It owns the run, the cadence, the feed and the settings, publishes them
+as `StateFlow`s, and holds the rules the controls rely on: settings are saved
+as `normalize()` leaves them, ramp output is never saved, and a manual change
+mid-ramp holds instead of choosing. It reaches Android only through four
+interfaces (`AudioOutput`, `Haptics`, `SettingsStorage`, `RunHost`), so its
+tests run on the JVM against fakes. `CadenceScreen` draws `RunState` and
+`Settings` and calls plain lambdas in `ScreenActions`, so screenshots need no
+controller.
 
-## The framework decision
+## Why native
 
-Earlier revisions of this app were deliberately build-free vanilla JS, and
-this document argued for that while the app was one screen driven by hand-wired
-DOM updates. The rework to Vue 3 replaced the hand synchronisation (`paint*`
-functions and manual `setValue` calls) with declarative templates, at the cost
-the old argument predicted: a build step, a dependency tree to keep patched,
-and CI for GitHub Pages.
+The PWA's beat paused Spotify on Android, because Chrome takes audio focus for
+the page and a web page cannot opt out. Android mixes apps that play at the
+same time, and its fade and duck rules act only on apps that requested
+focus. A native app that never requests it plays alongside Spotify with
+nothing paused or ducked.
 
-What the migration deliberately did *not* touch is the part of the app that is
-actually hard: `core/` and `platform/` are the same modules the vanilla app
-ran, none of them import Vue, and the test suite that pins the scheduler ran
-unchanged against them throughout. If Vue ever needs to go, it takes
-`components/` and `composables/` with it and nothing else.
+Flutter and React Native were the alternatives. Each would still need native
+Kotlin for every part that fixes the problem (the no-focus `AudioTrack`, the
+foreground service, the disconnect receiver, the call watcher), and their
+common audio plugins request focus by default. With no second platform to
+share code with, the bridge buys nothing, so the app is Kotlin and Jetpack
+Compose.
 
-Conventions the Vue layer follows: `<script setup lang="ts">` single-file
-components, strict TypeScript everywhere (`vue-tsc` gates the build), state
-shared through composable singletons rather than a store library (Pinia earns
-its place when there are multiple stores or devtools needs; one screen with
-one engine does not need it), props down and events up, and reactive state
-mirrored out of the engine rather than the engine made reactive.
-
-Styles are colocated: each component owns its rules in a `<style scoped>`
-block, and `assets/base.css` holds only what is genuinely shared — tokens,
-the reset, and the patterns used by more than one component (panel
-scaffolding, hints, slider rows). Reusable presentational primitives carry
-the style guide's `Base` prefix. Type declarations default to `type`;
-`interface` appears only where declaration merging is the point, i.e. the
-global browser-API augmentations in `types/platform-extras.d.ts`.
+`core/` imports nothing from `android.*`, the rule that kept the PWA's
+`src/core/` free of Vue. We hold it as a package convention rather than pay
+for a separate JVM module's second build script.
 
 ## The scheduling model
 
 Covered in depth in [background-audio.md](background-audio.md). In short:
 
-- Beats are placed on the audio hardware clock ahead of time, never fired by a
-  timer, so timer jitter never reaches the ear.
-- Beat times are derived from an anchor (`anchor + index * period`) rather than
-  accumulated, so float error cannot pile up over a long run.
-- The lookahead window is 0.25s while visible and 6s while hidden.
-- A worker drives the heartbeat, keeping it clear of main-thread jank and of
-  the throttling applied to pages that are not in front.
-- After a stall longer than the tolerance, the grid skips to the next live slot
-  rather than firing every missed beat at once.
-- Everything queued is revocable, so a tempo change, a new sound or a stop
-  unwinds committed audio instead of waiting for it to drain. Revoking is
-  announced through `onRevoke`, because the re-planned beats re-use the numbers
-  that were just thrown away.
+- The frames written are the clock. One render thread at
+  `THREAD_PRIORITY_URGENT_AUDIO` renders 20 ms buffers and writes them, with
+  blocking writes, to a `MODE_STREAM` float `AudioTrack` at the device's native
+  rate, holding about 100 ms. A beat is a frame index in that stream, so thread
+  jitter can cause an underrun and never a misplaced beat.
+- Beat starts derive from an anchor (`anchor + index * 60/bpm`) and round to a
+  frame only when mixed, so float error cannot pile up. An hour at 48 kHz is
+  1.7e8 frames, exact in a Double.
+- Settings apply at buffer boundaries. The controller replaces a `@Volatile`
+  `RenderSettings` snapshot whole, and the render thread reads it once per
+  buffer, so a new voice, accent or click lands on the next beat not yet
+  written.
+- On a tempo change, the first beat at the new spacing goes at
+  `max(last + new period, writeHead)`, where `last` is the latest beat already
+  mixed. The gap is exactly the new period on a drop and between the new and
+  old periods on a rise, so no beat lands on one already sounded and a rise
+  never skips a slot.
+- A stalled writer underruns, and the next frame it writes is still the next
+  grid frame, so nothing skips ahead.
+- Written beats cross to the main thread through a `ConcurrentLinkedQueue`.
+  `PlaybackClock` maps now to the frame being heard, from the track's latest
+  `AudioTimestamp`, and falls back to the playback head while there is none.
+  The beat flash on each Compose frame, the step count on a 500 ms tick (so it
+  stays right with the screen off) and each vibration's delay all read that
+  clock, so they include Bluetooth output latency.
 
 Four invariants are worth stating because they are easy to break:
 
-1. **Accent phase is tracked separately from grid index.** The grid re-anchors
-   on a tempo change; the accent pattern must carry straight through. Revoking
-   beats hands the beat numbering back to where it was for this reason.
-2. **A re-used beat number is always announced first.** Anything holding beats
-   it has not yet drawn or counted cannot otherwise tell the second beat 41 from
-   the first, and will treat both as having sounded.
+1. **Accent phase is tracked separately from grid index.** A tempo change
+   re-anchors the grid and resets its index to 0; the accent follows the
+   running count, which only ever advances, so the pattern carries straight
+   through. Beats inside a call advance the count as well, so the first beat
+   after the call carries the accent the grid predicts.
+2. **A written beat is final.** The renderer reports each beat once, as it
+   writes it, and never withdraws one: settings change the next buffer, never
+   a buffer already written. The feed counts and flashes beats on that basis,
+   so a change that unwound written audio would count beats that never
+   sounded.
 3. **Anything derived from time is computed from elapsed, not accumulated.**
-   The session clock and the ramp both follow this, so a throttled timer in the
-   background changes nothing about where they end up.
+   The run clock is the frames written while not silenced, divided by the
+   rate, and the ramp reads that clock. A late tick changes nothing about
+   where either ends up, and a call pauses both. Underruns make the run clock
+   fall behind the phone's clock, which is how a device check spots them.
 4. **The cadence you chose and the cadence sounding are different numbers.**
-   Only the first is ever saved. Persisting the second let a ramp overwrite its
-   own starting point, so it worked exactly once. `core/cadence.ts` holds the
-   split.
+   Only the first is ever saved. Persisting the second lets a ramp overwrite
+   its own starting point, so it works exactly once. A manual change during a
+   running ramp moves only the sounding cadence, for the rest of that run.
+   `core/Cadence.kt` holds the split.
 
 ## Sound synthesis
 
-The eight voices in `core/sounds.ts` are built from oscillators and a shared noise
-buffer rather than loaded from files. This keeps the app a few kilobytes and
-working offline from first install, and it means the accent can be a re-pitched
-variant of the same voice rather than a second recording.
+The eight voices in `core/Voices.kt` are synthesised per hit, when a beat is
+first mixed, from oscillators, biquads and a one-second noise buffer seeded
+per run. The app ships no audio files. The accent is the same voice pitched up
+by 1.5 and played 1.35 times louder, and each noise hit starts at a random
+offset into the buffer, so repeated hits never loop identically.
 
-Each voice exposes `play(context, destination, time, options)` and schedules
-itself at `time`. Nothing in the module reads the current clock, which is what
-allows a voice to be queued seconds ahead without sounding different.
+The voices match the PWA's Web Audio sound. Biquads use the Web Audio spec's
+coefficients, with highpass Q in decibels and bandpass Q linear. Squares and
+triangles are odd-partial Fourier series, cut off the way Chrome's band-limited
+tables are, which keeps every partial below Nyquist. Against renders from the
+PWA, every voice matched within 1.2% on peak, on a 5 ms RMS envelope and on
+spectral centroid. Each hit renders from index 0 and the renderer places it,
+so a hit that starts near the end of a buffer carries its tail into the next.
+
+## The run service
+
+`CadenceApp` owns one `MetronomeController` for the process, so a run outlives
+the Activity. Start launches `RunService`, a started, unbound foreground
+service of type `mediaPlayback`, which Android never times out. The service:
+
+- posts the ongoing notification: cadence as the title, the run clock as a
+  chronometer, and Slower, Faster and Stop, which call the same controller as
+  the screen;
+- registers the `ACTION_AUDIO_BECOMING_NOISY` receiver, which stops the run
+  when earbuds disconnect;
+- listens for audio mode changes. Any mode but `MODE_NORMAL` silences the
+  beat, so a mode Android adds later fails closed.
+
+`onStartCommand` returns `START_NOT_STICKY`, so a killed process never
+restarts the service without a run. Swiping the app away from recents keeps
+the run going, as music players do. The app holds no `MediaSession`, because
+media buttons go to the last app with a session that played audio, and that
+keeps the earbuds' buttons on the music.
+
+Threads: the render thread alone writes the renderer's state, haptics post to
+their own `HandlerThread`, and everything else belongs to the main thread.
+
+The app never shows "running" with no sound. A track that fails to open at
+Start leaves the run stopped, with a snackbar. A write returning
+`ERROR_DEAD_OBJECT` recreates the track once and carries on from the same
+write head. A second dead object within a second, any other write error, or
+`startForeground` throwing stops the run with the same kind of snackbar.
 
 ## Testing
 
-`npm test` runs Node's built-in test runner directly against the TypeScript
-sources — Node 22.18+ strips the types natively, so the suite still has no
-dependencies and no config. `npm run typecheck` (also the first half of
-`npm run build`) runs `vue-tsc` over sources, components and tests.
+`./gradlew test` runs JUnit 4 on the JVM. There is no Robolectric and no
+instrumented test. `./gradlew lint` runs AGP's lint, which fails the build on
+errors. CI runs both, plus `assembleDebug`, on every push and pull request.
 
-Coverage targets the pure modules: beat times not drifting over an hour, a
-stall skipping missed beats rather than bursting, the tap average settling and
-ageing out old taps, the ramp curve hitting its target from both directions,
-and settings surviving corrupt, out-of-range and hostile storage.
+The `core/` tests pin beat spacing within a frame over an hour, the first beat
+80 ms after Start, a hit spanning a buffer boundary rendering the same samples
+as in one buffer, the ramp curve, tap tempo, and settings surviving
+out-of-range, hostile and wrong-typed storage. Two sweeps pin the tempo
+change: it never lands a beat on top of one sounded (no gap under 60/220 s)
+and never swallows one (no gap over the old period), each at buffer sizes of
+1, 64 and 4800 frames. 120 to 132 at 1.04 s with a one-frame buffer is the
+case where re-anchoring at the write head alone drops a beat.
 
-The scheduler is covered too, behind the fake clock in
-`test/helpers/audio-harness.ts`. This document used to argue that mocking the
-audio context was not worth the effort. That was wrong, and cheaply so: the fake
-is about two hundred lines with no dependencies, and the hard part turned out to
-be only that `advance()` has to step `context.currentTime` and the timers
-together in small slices, so a vibration timer never fires at a moment when the
-audio clock disagrees about what time it is. Node's own `mock.timers` does the
-rest.
-
-What has not changed is that this says nothing about what a real mobile OS does
-to a backgrounded page. That is still verified by hand on a device using the
-checklist in
-[background-audio.md](background-audio.md#verifying-on-a-device). The fake
-answers a narrower question — whether the scheduler does what it means to — and
-that question turned out to be where the bugs were.
-
-The DOM is still left out, and the Vue layer with it: `useMetronome.ts` and
-the components are the largest untested surface in the app. The way to shrink
-it is the way `core/cadence.ts` was arrived at: when a defect turns out to be
-untestable, move the rule it broke into a module with no DOM in it, rather
-than fixing it in place and hoping. `core/beat-feed.ts` is that move applied
-to the pending-beat bookkeeping — the drain, the step count, and the
-revocation drop are now pinned by tests instead of read for correctness.
-(Component tests via Vitest and @vue/test-utils are the alternative if that
-ever stops being enough.)
-
-Writing tests keeps finding defects in code that looked obviously correct. The
-pure modules gave up two: `beatIndexAt` returned `-0` at the grid origin, which
-would have propagated into beat numbering and accent arithmetic, and
-`beatsElapsed` was off by one exactly on the first beat. The scheduler gave up
-three more, all of which bite hardest with the screen off, which is precisely
-where hand-testing is least reliable:
-
-- Vibration stopped about a second after the page was hidden, because the whole
-  six-second lookahead sits past the one-second horizon a haptic timer can be
-  armed within, and nothing re-armed it.
-- A tempo change re-used the beat numbers it had just revoked, so the step
-  counter counted its own lookahead twice — better than double while hidden.
-- A tempo drop could place the first beat of the new grid a few milliseconds
-  after a beat that had survived inside the change lead. A sweep of phase
-  against tempo delta found 180 to 164 landing two beats 32ms apart where the
-  shortest legal gap is 333ms.
-- The mirror of that, found by reviewing the fix rather than by running it: a
-  tempo *rise* could round past a slot sitting inside the change lead and drop
-  the beat entirely, leaving a silence of two periods. About one change in six
-  for a jump like 150 to 180. This one predates the fix above and was not
-  introduced by it.
+The controller runs against `run/Fakes.kt`. `FakeOutput` simulates a track
+whose writer runs a fixed latency ahead of what is heard, so a test knows when
+each frame sounds. The controller tests cover start and stop order, ramp
+output never saved, hold against choose, calls (an unknown mode included),
+earbuds disconnecting, stop reasons, the playback clock with and without
+timestamps and across a recreated track, dead objects, and 10,000 beats
+crossing threads with none lost or doubled.
 
 A test suite that runs green says nothing on its own about whether it would go
-red. Each of these is pinned by a test that has been checked against a
-deliberately broken copy of the code it covers, and several of the first
-attempts turned out to pass against the mutation — `stopping unwinds what was
-already committed` proved the pump had stopped, which it would have done with
-the unwinding removed entirely. Worth repeating that check when adding to these
-files: write the mutation, confirm the red, then revert.
+red. Each sweep and guard test has been checked against a deliberately broken
+copy of the code it covers. Repeat that when adding to these files: write the
+mutation, confirm the red, then revert.
 
-## Service worker
+None of this says what a real phone does with a backgrounded app, audio
+routing, calls or vibration. We verify those by hand on a device using the
+checklist in
+[background-audio.md](background-audio.md#verifying-on-a-device).
 
-The offline shell is generated by `vite-plugin-pwa` (Workbox `generateSW`)
-rather than written by hand: the whole build output is precached, hashed
-filenames make cache invalidation exact, and `registerType: 'autoUpdate'`
-swaps a new deploy in on the next launch with a connection. This changes the
-navigation strategy from the old worker's network-first to offline-first,
-which is the right trade for an app whose whole point is working mid-run with
-no signal.
-
-`public/sw-legacy-cleanup.js` rides along inside the generated worker to
-delete the `cadence-v*` caches the hand-written pre-Vite worker left behind;
-Workbox only cleans caches it owns.
-
-Because the shipped files are now build artifacts, GitHub Pages deploys
-through the workflow in `.github/workflows/deploy.yml` instead of serving the
-repository directly.
+`./gradlew recordPaparazziDebug` renders the screen with Paparazzi (layoutlib
+on the JVM) in light, dark and font scales 1.3 and 2.0, viewport and scroll.
 
 ## Design system
 
-Tokens live at the top of `src/assets/base.css`. The layout treats the screen as two
-surfaces: the top is an instrument, read at arm's length in daylight while
-moving, and gets the size and contrast; the bottom is setup, read standing
-still, and gets the density.
+Tokens live in `ui/Theme.kt`: Material 3 colour roles, the band's own colours
+in `BandColors`, shapes, and a type scale that sets figures in Barlow
+Condensed. The screen is a pace band. A cobalt band at the top carries the
+cadence in tabular figures, read at arm's length in daylight while moving.
+Below it, ruled modules under ink tabs hold the setup, read standing still.
+Presets, sounds and accents are a printed cell grid, the ramp is a set of
+split rows, and while the ramp climbs the band shows a split strip. Start and
+Stop sit docked at the bottom.
 
 Conventions worth preserving:
 
-- Monospace is for measurements only (cadence, clock, counts), never for labels.
-- Sections are separated by hairlines rather than boxed as cards.
-- Minimum 44px on anything pressable.
+- Tabular figures are for measurements only (cadence, clock, counts, splits).
+- Hairline rules separate modules; nothing is boxed as a card.
+- Lime marks "you are here", the ramp split the run has reached and the beat
+  flash, and nothing else.
 - Light and dark are both first class; this is used at 6am and at 9pm.
-- Reduced motion keeps the beat visible as a colour change rather than removing
-  the feedback, since the pulse is functional rather than decorative.
+- The beat flash is a colour held for 120 ms with no movement, so it reads the
+  same with animations off.
+- Every user-facing string lives in `res/values/strings.xml`.
+- Text must fit up to font scale 2.0; large text stacks a slider's label and
+  value over the slider.
