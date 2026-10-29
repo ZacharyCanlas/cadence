@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -213,6 +215,7 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
         if (session != null) {
             Text(session, style = MaterialTheme.typography.headlineSmall, color = band.onBand, modifier = Modifier.padding(top = 4.dp))
         }
+        if (climbing(state, settings)) BandSplits(state, settings)
         val status = bandStatus(state, settings)
         if (status != null) {
             Text(
@@ -241,6 +244,46 @@ private fun rampStatus(state: RunState, settings: Settings): String? = when {
     state.rampHeld -> stringResource(R.string.status_ramp_held, state.currentBpm)
     state.running && rampDone(settings.rampMinutes, state.elapsedSeconds) -> stringResource(R.string.status_ramp_holding, settings.rampTo)
     else -> stringResource(R.string.ramp_climbing_over, settings.rampTo, settings.rampMinutes)
+}
+
+private fun climbing(state: RunState, settings: Settings) =
+    state.running && settings.rampOn && !state.silenced && !state.rampHeld &&
+        !rampDone(settings.rampMinutes, state.elapsedSeconds)
+
+/** The ramp's split points: minute, cadence at that minute, and which one the run has reached (-1 for none). */
+private class Splits(val minutes: List<Double>, val cadences: List<Int>, val reached: Int)
+
+private fun splits(state: RunState, settings: Settings): Splits {
+    val from = if (state.running) state.rampFrom else settings.bpm
+    val minutes = (0 until 6).map { it * settings.rampMinutes / 5.0 }
+    val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds } else -1
+    return Splits(minutes, minutes.map { rampBpmAt(from, settings.rampTo, settings.rampMinutes, it * 60) }, reached)
+}
+
+/** Where the climb has reached, on the surface a mid-run glance lands on: the split rows as one strip. */
+@Composable
+private fun BandSplits(state: RunState, settings: Settings) {
+    val band = LocalBandColors.current
+    val s = splits(state, settings)
+    Row(
+        Modifier
+            .padding(top = 14.dp)
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.extraSmall)
+            .border(1.dp, band.onBandMuted.copy(alpha = 0.5f), MaterialTheme.shapes.extraSmall)
+            .clearAndSetSemantics { },
+    ) {
+        s.cadences.forEachIndexed { index, cadence ->
+            if (index > 0) Box(Modifier.width(1.dp).height(36.dp).background(band.onBandMuted.copy(alpha = 0.5f)))
+            val lit = index == s.reached
+            Box(
+                Modifier.weight(1f).height(36.dp).background(if (lit) band.marker else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(cadence.toString(), style = FigureBody, color = if (lit) band.onMarker else band.onBand)
+            }
+        }
+    }
 }
 
 /**
@@ -274,21 +317,23 @@ private fun BeatRing(accentEvery: Int, flashPosition: Int?, modifier: Modifier) 
     }
 }
 
-/** A ruled module under its small header tab. */
+/** A ruled module under its header tab: an ink tab seated on the module's top rule, as on a printed band. */
 @Composable
 private fun Module(title: Int, content: @Composable () -> Unit) {
-    val band = LocalBandColors.current
-    Column(Modifier.fillMaxWidth().padding(top = 28.dp)) {
-        Row(Modifier.padding(horizontal = Gutter), verticalAlignment = Alignment.Bottom) {
-            Text(
-                stringResource(title).uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.semantics { heading() },
-            )
-        }
-        HorizontalDivider(Modifier.padding(top = 6.dp, start = Gutter, end = Gutter), thickness = 1.dp, color = band.rule)
-        Column(Modifier.padding(horizontal = Gutter).padding(top = 12.dp)) { content() }
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Text(
+            stringResource(title).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.surface,
+            modifier = Modifier
+                .padding(horizontal = Gutter)
+                .background(colors.onSurface, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                .padding(horizontal = 8.dp, vertical = 3.dp)
+                .semantics { heading() },
+        )
+        HorizontalDivider(Modifier.padding(horizontal = Gutter), thickness = 2.dp, color = colors.onSurface)
+        Column(Modifier.padding(horizontal = Gutter).padding(top = 8.dp)) { content() }
     }
 }
 
@@ -378,8 +423,8 @@ private fun <T> CellGrid(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .border(1.dp, band.rule, MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.extraSmall)
+            .border(1.dp, band.rule, MaterialTheme.shapes.extraSmall)
             .selectableGroup(),
     ) {
         items.chunked(cols).forEachIndexed { rowIndex, row ->
@@ -543,11 +588,7 @@ private fun ValueSlider(
     enabled: Boolean,
     onChange: (Int) -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp).alpha(if (enabled) 1f else 0.38f),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(label), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(72.dp))
+    val slider = @Composable { modifier: Modifier ->
         Slider(
             value = value.toFloat(),
             onValueChange = { onChange(it.roundToInt()) },
@@ -555,12 +596,28 @@ private fun ValueSlider(
             steps = range.last - range.first - 1,
             colors = untickedSlider(),
             enabled = enabled,
-            modifier = Modifier.weight(1f).semantics {
+            modifier = modifier.semantics {
                 contentDescription = sliderLabel
                 stateDescription = spoken
             },
         )
-        Text(shown, style = FigureBody, textAlign = TextAlign.End, modifier = Modifier.width(64.dp))
+    }
+    val faded = Modifier.fillMaxWidth().padding(top = 12.dp).alpha(if (enabled) 1f else 0.38f)
+    // Large text stacks the label and value over a full-width slider rather than squeezing a word.
+    if (LocalDensity.current.fontScale >= 1.6f) {
+        Column(faded) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(label), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(shown, style = FigureBody)
+            }
+            slider(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(faded, verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(label), style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(min = 72.dp))
+            slider(Modifier.weight(1f).padding(horizontal = 8.dp))
+            Text(shown, style = FigureBody, textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 56.dp))
+        }
     }
 }
 
@@ -609,14 +666,13 @@ private fun RampModule(state: RunState, settings: Settings, actions: ScreenActio
 @Composable
 private fun SplitRows(state: RunState, settings: Settings) {
     val band = LocalBandColors.current
-    val from = if (state.running) state.rampFrom else settings.bpm
-    val rows = 6
-    val minutes = (0 until rows).map { it * settings.rampMinutes / (rows - 1.0) }
-    val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds } else -1
-    Column(Modifier.fillMaxWidth().padding(top = 16.dp).border(1.dp, band.rule, MaterialTheme.shapes.medium)) {
-        minutes.forEachIndexed { index, minute ->
+    val s = splits(state, settings)
+    Column(
+        Modifier.fillMaxWidth().padding(top = 12.dp).clip(MaterialTheme.shapes.extraSmall).border(1.dp, band.rule, MaterialTheme.shapes.extraSmall),
+    ) {
+        s.minutes.forEachIndexed { index, minute ->
             if (index > 0) HorizontalDivider(thickness = 1.dp, color = band.rule)
-            val lit = index == reached
+            val lit = index == s.reached
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -627,7 +683,7 @@ private fun SplitRows(state: RunState, settings: Settings) {
                 val ink = if (lit) band.onMarker else MaterialTheme.colorScheme.onSurface
                 Text(stringResource(R.string.ramp_split_minute, minute.roundToInt()), style = FigureBody, color = ink, modifier = Modifier.weight(1f))
                 Text(
-                    rampBpmAt(from, settings.rampTo, settings.rampMinutes, minute * 60).toString(),
+                    s.cadences[index].toString(),
                     style = FigureBody.copy(fontWeight = FontWeight.SemiBold),
                     color = ink,
                 )
