@@ -25,9 +25,9 @@ fun interface BeatSink {
  * is a frame index in the stream, so a late writer can only underrun, never
  * misplace a beat.
  *
- * Every field but [settings] belongs to the render thread. The controller
- * replaces [settings] whole and the render thread reads it once per buffer,
- * so a change lands on the next beat not yet written.
+ * Only the render thread writes its state. The controller replaces
+ * [settings] whole and the render thread reads it once per buffer, so a
+ * change lands on the next beat not yet written.
  */
 class Renderer(private val rate: Int, private val voices: VoiceKit, initial: RenderSettings) {
     @Volatile
@@ -43,11 +43,13 @@ class Renderer(private val rate: Int, private val voices: VoiceKit, initial: Ren
     /** Start of the latest beat already mixed, exact; null until the first. */
     private var lastMixed: Double? = null
 
-    /** Frames written so far. */
+    /** Frames written so far. Read from other threads. */
+    @Volatile
     var writeHead: Long = 0
         private set
 
-    /** Frames written while not silenced: the run clock, which a call pauses. */
+    /** Frames written while not silenced: the run clock, which a call pauses. Read from other threads. */
+    @Volatile
     var activeFrames: Long = 0
         private set
 
