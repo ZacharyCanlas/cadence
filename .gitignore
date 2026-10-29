@@ -10,3 +10,8 @@ local.properties
 *.jks
 *.keystore
 *.apk
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/*.local.json
+app/src/test/snapshots/
+.impeccable/questions/

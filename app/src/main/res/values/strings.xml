@@ -15,4 +15,108 @@
     <string name="action_slower">Slower</string>
     <string name="action_faster">Faster</string>
     <string name="action_stop">Stop</string>
+
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="announce_started">Started at %1$d steps per minute</string>
+    <string name="announce_stopped">Stopped</string>
+    <string name="unit_steps_per_minute">steps per minute</string>
+    <plurals name="cadence_description">
+        <item quantity="one">%1$d step per minute</item>
+        <item quantity="other">%1$d steps per minute</item>
+    </plurals>
+    <plurals name="steps">
+        <item quantity="one">%1$s step</item>
+        <item quantity="other">%1$s steps</item>
+    </plurals>
+
+    <string name="cadence_slower">One step per minute slower</string>
+    <string name="cadence_faster">One step per minute faster</string>
+    <string name="cadence_slider">Steps per minute</string>
+
+    <string name="tap_label">Tap your stride</string>
+    <string name="tap_hint">Tap along as you run to read your cadence</string>
+    <string name="tap_keep_going">Keep tapping, %1$d so far</string>
+    <string name="tap_reading">Reading %1$d steps per minute</string>
+
+    <string name="section_cadence">Cadence</string>
+    <string name="section_presets">Presets</string>
+    <string name="section_sound">Sound</string>
+    <string name="section_accent">Accent</string>
+    <string name="section_output">Output</string>
+    <string name="section_ramp">Cadence ramp</string>
+
+    <string name="preset_recovery">Recovery</string>
+    <string name="preset_recovery_hint">Easy legs, low impact</string>
+    <string name="preset_easy">Easy</string>
+    <string name="preset_easy_hint">Conversational pace</string>
+    <string name="preset_steady">Steady</string>
+    <string name="preset_steady_hint">Most of your weekly mileage</string>
+    <string name="preset_target">Target</string>
+    <string name="preset_target_hint">The cadence most coaching aims at</string>
+    <string name="preset_tempo">Tempo</string>
+    <string name="preset_tempo_hint">Threshold and race effort</string>
+    <string name="preset_strides">Strides</string>
+    <string name="preset_strides_hint">Short, fast turnover</string>
+    <string name="preset_hint">%1$s. %2$s.</string>
+    <string name="preset_none_hint">Set by hand. Tap a preset to jump to a known target.</string>
+
+    <string name="voice_click">Click</string>
+    <string name="voice_click_hint">Dry and sharp. Cuts through traffic and wind.</string>
+    <string name="voice_woodblock">Woodblock</string>
+    <string name="voice_woodblock_hint">Warm and organic. The classic metronome sound.</string>
+    <string name="voice_beep">Beep</string>
+    <string name="voice_beep_hint">A clean tone. Easiest to pick out under headphones.</string>
+    <string name="voice_cowbell">Cowbell</string>
+    <string name="voice_cowbell_hint">Metallic and loud. Built for noisy roads.</string>
+    <string name="voice_rimshot">Rimshot</string>
+    <string name="voice_rimshot_hint">Short and percussive. Sits neatly behind a track.</string>
+    <string name="voice_kick">Kick drum</string>
+    <string name="voice_kick_hint">Low and felt more than heard. Good with music playing.</string>
+    <string name="voice_hihat">Hi-hat</string>
+    <string name="voice_hihat_hint">Crisp and light. Stays out of the way of vocals.</string>
+    <string name="voice_kit">Drum kit</string>
+    <string name="voice_kit_hint">Kick on the accent, hi-hat between. A groove to run to.</string>
+    <string name="volume">Volume</string>
+    <string name="volume_slider">Sound volume</string>
+    <string name="percent">%1$d percent</string>
+
+    <string name="accent_off">Off</string>
+    <string name="accent_off_hint">Every step sounds the same</string>
+    <string name="accent_2">Every 2</string>
+    <string name="accent_2_hint">Marks the same foot each time</string>
+    <string name="accent_3">Every 3</string>
+    <string name="accent_3_hint">Three-step breathing rhythm</string>
+    <string name="accent_4">Every 4</string>
+    <string name="accent_4_hint">Four-count, alternating feet</string>
+    <string name="accent_6">Every 6</string>
+    <string name="accent_6_hint">In for three, out for three</string>
+
+    <string name="output_click">Click</string>
+    <string name="output_click_hint">The sound you picked above</string>
+    <string name="output_vibrate">Vibrate</string>
+    <string name="output_vibrate_hint">Uses your phone\'s alarm vibration setting</string>
+    <string name="output_no_vibrator">This phone has no vibration motor</string>
+    <string name="output_hint">One output always stays on, so there is never a run with nothing to follow.</string>
+    <string name="notifications_off">Notifications are off, so Stop is only here in the app</string>
+    <string name="notifications_settings">Notification settings</string>
+
+    <string name="ramp_hint">Start where you run now and climb to the target across the run. Adding a few steps per minute at a time sticks better than jumping to the number.</string>
+    <string name="ramp_switch">Ramp the cadence</string>
+    <string name="ramp_switch_hint">Climb from where you start to the target</string>
+    <string name="ramp_target">Target</string>
+    <string name="ramp_target_slider">Ramp target cadence</string>
+    <string name="ramp_over">Over</string>
+    <string name="ramp_over_slider">Ramp length in minutes</string>
+    <string name="ramp_minutes">%1$d min</string>
+    <plurals name="minutes_description">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="ramp_climbing_over">Climbing to %1$d over %2$d min</string>
+    <string name="ramp_split_minute">min %1$d</string>
+
+    <string name="stopped_noisy">Stopped when your headphones disconnected</string>
+    <string name="start_failed">The beat could not start because the audio output failed. Tap Start to try again.</string>
+    <string name="stopped_failed">The beat stopped because the audio output failed. Tap Start to try again.</string>
 </resources>

@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.random.Random
 
-enum class StopReason { Noisy, OutputFailed }
+enum class StopReason { Noisy, StartFailed, OutputFailed }
 
 data class RunState(
     val running: Boolean,
@@ -36,6 +36,8 @@ data class RunState(
     val steps: Int,
     val silenced: Boolean,
     val rampHeld: Boolean,
+    /** Where the running ramp climbs from. */
+    val rampFrom: Int,
     /** Why the last run ended on its own. Cleared by Start, a Stop and [MetronomeController.consumeStopReason]. */
     val stopReason: StopReason?,
 )
@@ -71,7 +73,7 @@ class MetronomeController(
     private val _state = MutableStateFlow(
         RunState(
             running = false, currentBpm = cadence.current, elapsedSeconds = 0.0, steps = 0,
-            silenced = false, rampHeld = false, stopReason = null,
+            silenced = false, rampHeld = false, rampFrom = cadence.rampFrom, stopReason = null,
         ),
     )
     val state: StateFlow<RunState> = _state.asStateFlow()
@@ -93,6 +95,9 @@ class MetronomeController(
     @Volatile
     private var vibrating = false
 
+    /** False on a phone with no vibration motor. */
+    val canVibrate: Boolean get() = haptics.available
+
     init {
         output.setVolume(_settings.value.volume / 100f)
     }
@@ -107,7 +112,7 @@ class MetronomeController(
         silenced = host.audioMode() != AudioManager.MODE_NORMAL
         val renderer = Renderer(rate, VoiceKit(rate, Noise.seeded(rate, Random(seeds.nextInt()))), renderSettings(s))
         if (!output.open()) {
-            publish(stopReason = StopReason.OutputFailed)
+            publish(stopReason = StopReason.StartFailed)
             return
         }
         clock.reset(0)
@@ -314,6 +319,7 @@ class MetronomeController(
             steps = feed.steps,
             silenced = r != null && silenced,
             rampHeld = cadence.rampHeld,
+            rampFrom = cadence.rampFrom,
             stopReason = stopReason,
         )
     }

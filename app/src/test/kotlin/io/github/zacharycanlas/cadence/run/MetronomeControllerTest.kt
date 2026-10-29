@@ -258,7 +258,7 @@ class MetronomeControllerTest {
         rig.output.openResults.addLast(false)
         rig.controller.start()
         assertFalse(rig.controller.state.value.running)
-        assertEquals(StopReason.OutputFailed, rig.controller.state.value.stopReason)
+        assertEquals(StopReason.StartFailed, rig.controller.state.value.stopReason)
         assertFalse(rig.events.contains("host.start"))
     }
 
