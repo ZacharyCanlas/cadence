@@ -165,10 +165,13 @@ class MetronomeController(
      * alone; otherwise it is a new choice and is saved.
      */
     fun setCadence(value: Int) {
-        // Re-tapping the lit preset, or ±1 at the end of the range, is no change and must not take over a ramp.
-        if (clampBpm(value) == cadence.current) return
         val s = _settings.value
-        if (run != null && s.rampOn) {
+        val v = clampBpm(value)
+        val holds = run != null && s.rampOn
+        // Re-tapping the lit preset, or ±1 at the end of the range, changes nothing and must not take over
+        // a ramp; outside one, a value equal to what is sounding is still saved when it differs from the choice.
+        if (v == cadence.current && (holds || v == cadence.chosen)) return
+        if (holds) {
             cadence.hold(value)
         } else {
             cadence.choose(value)
@@ -236,6 +239,8 @@ class MetronomeController(
         if (!r.active) return false
         r.renderer.render(r.buffer, chunkFrames, r.sink)
         val result = output.write(r.buffer, chunkFrames)
+        // A write that returns after Stop belongs to a finished run and must not touch the next run's track.
+        if (!r.active) return false
         if (result >= 0) {
             clock.refresh(nanoTime())
             return r.active

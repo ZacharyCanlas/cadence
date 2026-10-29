@@ -44,14 +44,20 @@ class TrackOutput(context: Context) : AudioOutput {
 
     @Volatile
     private var volume = 1f
-    private var thread: Thread? = null
-
     /**
-     * Set when stopLoop gives up waiting on a render thread stuck in write.
-     * That thread then releases the track itself on its way out, since
-     * releasing it here, under a write in flight, can crash in native code.
+     * One render thread. When stopLoop gives up waiting on it, stuck in a
+     * write, its track becomes [abandoned]: the thread releases it on its way
+     * out, since releasing it under a write in flight can crash in native
+     * code, and the next run builds a track of its own meanwhile. Both fields
+     * are read and written under [lock].
      */
-    private var orphaned = false
+    private class Loop {
+        var exited = false
+        var abandoned: AudioTrack? = null
+    }
+
+    private var thread: Thread? = null
+    private var loop: Loop? = null
     private val stamp = AudioTimestamp()
 
     private fun build(): AudioTrack {
@@ -66,8 +72,6 @@ class TrackOutput(context: Context) : AudioOutput {
     }
 
     override fun open(): Boolean = synchronized(lock) {
-        // A stuck thread from the last run still owns the current track.
-        if (orphaned) return false
         closeLocked()
         try {
             val created = build()
@@ -118,14 +122,15 @@ class TrackOutput(context: Context) : AudioOutput {
         synchronized(lock) { (track?.playbackHeadPosition ?: 0).toLong() and 0xffff_ffffL }
 
     override fun startLoop(step: () -> Boolean) {
+        val mine = Loop()
+        loop = mine
         thread = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
             while (step()) Unit
             synchronized(lock) {
-                if (orphaned) {
-                    closeLocked()
-                    orphaned = false
-                }
+                mine.exited = true
+                mine.abandoned?.release()
+                mine.abandoned = null
             }
         }, "cadence-render").also(Thread::start)
     }
@@ -140,11 +145,20 @@ class TrackOutput(context: Context) : AudioOutput {
             track?.pause()
             track?.flush()
         }
-        val loop = thread
+        val stopping = loop
+        val running = thread
+        loop = null
         thread = null
-        loop?.join(STOP_JOIN_MILLIS)
+        running?.join(STOP_JOIN_MILLIS)
+        // Decided on the loop's own flag, set under the lock, never on Thread.isAlive,
+        // which can still be true after the loop has finished its last locked step.
         synchronized(lock) {
-            if (loop?.isAlive == true) orphaned = true else closeLocked()
+            if (stopping == null || stopping.exited) {
+                closeLocked()
+            } else {
+                stopping.abandoned = track
+                track = null
+            }
         }
     }
 

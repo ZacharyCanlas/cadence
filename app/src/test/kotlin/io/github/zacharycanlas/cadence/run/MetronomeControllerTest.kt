@@ -160,6 +160,19 @@ class MetronomeControllerTest {
     }
 
     @Test
+    fun `with the ramp off after a climb, choosing what is sounding saves it`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 160, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(150.0)
+        assertEquals(165, rig.controller.state.value.currentBpm)
+        rig.controller.setRampOn(false)
+        rig.controller.setCadence(165)
+        rig.controller.stop()
+        assertEquals(165, rig.storage.values["bpm"])
+        assertEquals(165, rig.controller.state.value.currentBpm)
+    }
+
+    @Test
     fun `a call silences the beat and the end of the call resumes it`() {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180, rampOn = true, rampTo = 200, rampMinutes = 10, vibrate = true))
         rig.controller.start()

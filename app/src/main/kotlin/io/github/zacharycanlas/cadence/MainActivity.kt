@@ -60,8 +60,10 @@ private fun RunScreen(controller: MetronomeController) {
     val snackbars = remember { SnackbarHostState() }
     val tapTempo = remember { TapTempo() }
     var tapHint by remember { mutableStateOf<TapHint>(TapHint.Idle) }
-    // A pause longer than the tap timeout starts a fresh measurement, so the hint goes back to its prompt.
-    LaunchedEffect(tapHint) {
+    var taps by remember { mutableStateOf(0) }
+    // A pause longer than the tap timeout starts a fresh measurement, so the hint goes back to its
+    // prompt. Keyed on each tap, since steady tapping repeats the same reading.
+    LaunchedEffect(taps) {
         if (tapHint != TapHint.Idle) {
             delay(TAP_TIMEOUT_MS)
             tapHint = TapHint.Idle
@@ -146,6 +148,7 @@ private fun RunScreen(controller: MetronomeController) {
             nudge = controller::nudge,
             tap = {
                 val reading = tapTempo.tap(SystemClock.uptimeMillis())
+                taps += 1
                 tapHint = reading.bpm?.let(TapHint::Reading) ?: TapHint.Counting(reading.taps)
                 reading.bpm?.also(controller::setCadence)
             },
