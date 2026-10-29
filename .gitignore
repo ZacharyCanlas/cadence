@@ -1,6 +1,3 @@
-node_modules/
-dist/
-dev-dist/
 .playwright-mcp/
 .DS_Store
 .gradle/
