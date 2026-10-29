@@ -3,119 +3,62 @@
 Observations from reviewing the source that the test suite cannot settle on its
 own. Anything provable gets a test instead; this file is for what is left.
 
-> Entries below predate the Vue rework and use the old layout's names. The
-> composition root they call `main.js` lives on as
-> `src/composables/useMetronome.ts`, and the findings about it still apply
-> there; pure modules moved under `src/core/` with a `.ts` extension. The
-> beat bookkeeping singled out below has since been extracted to
-> `src/core/beat-feed.ts` and is covered by `test/beat-feed.test.ts`.
-
-## Verified by inspection only
-
-**`main.js` cannot be loaded under `node --test`.** It calls `init()` at import
-and reaches for `document` throughout, so the composition root has no automated
-coverage at all. The engine side of the beat feed is tested through
-`test/helpers/audio-harness.js`, but the half that lives in `main.js` — the
-`onRevoke` handler that drops stale pending beats, the animation-loop drain, the
-session clock — is checked by reading it.
-
-Worth revisiting if the file grows. Splitting the beat bookkeeping
-(`pendingBeats`, `stepCount`, `drainPast`) into a module with no DOM in it would
-make the step total testable without a browser, and that is the part with real
-logic in it.
-
-## Fixed
-
-**The cadence ramp worked once, then silently did nothing.** Every ramp step was
-persisted as the chosen cadence, so a run that climbed 150 to 180 saved 180. The
-next run climbed from 180 to 180 — a flat line, no warning, and the cadence you
-actually run at gone for good, leaving you starting every later run at the
-overstriding number the feature exists to train you out of.
-
-One value was doing two jobs. `cadence.js` splits them: `chosen` is yours and is
-the only part saved, `current` is what is sounding and the ramp is free to move
-it. Covered in `test/cadence.test.js`, including the cross-session round trip
-through storage that is the actual defect.
-
-What is left in `main.js` is one expression — `update({ bpm: cadence.chosen })`
-— rather than a state machine spread across the file. Still not reachable from
-`node --test`, but small enough to read in one go, and the rule it has to obey
-is now enforced by a module that is tested.
+The web app's findings, from the untested `main.js` to the iOS session-type
+runs, ended with the web app's removal; git history keeps them.
 
 ## Open questions, not defects
 
-**A manual cadence change mid-ramp restarts the climb from the new tempo, but
-the clock keeps running.** `tickSession` derives the target from
-`rampBpmAt(rampFrom, …, elapsed)`, and a manual `setBpm` resets `rampFrom`
-without resetting `elapsed`. Twenty minutes into a thirty-minute ramp, nudging
-the cadence down one step makes the next tick jump most of the way back up,
-because two thirds of the ramp's span is now applied to the new starting point.
+**The volume slider steps the gain.** `MetronomeController.setVolume` passes
+`value / 100f` to `TrackOutput.setVolume`, which calls `AudioTrack.setVolume`
+outright. Cadence applies no ramp of its own, so dragging the slider mid-run
+changes the beat's level in steps. Whether you can hear those steps through a
+phone speaker under music takes an ear on a device; a unit test cannot answer
+it.
 
-Arguably correct — you asked for a ramp to a target and the target has not
-moved. Arguably wrong — the nudge is immediately undone. Needs a decision about
-what the control is for before it is worth changing.
+## Resolved
 
-**Volume is applied as a direct gain assignment.** `setVolume` sets
-`master.gain.value` outright rather than ramping, so dragging the slider during
-a run steps the gain rather than sliding it. Whether that is audible on a phone
-speaker under music is not something a unit test can answer; it needs an ear on
-a device.
+**A manual cadence change mid-ramp holds.** The web app restarted the climb from
+the new cadence and kept the ramp's clock running. Twenty minutes into a
+thirty-minute ramp, a one-step nudge down came back undone at the next tick,
+because two thirds of the ramp's span applied to the new starting point. The
+notification's Slower and Faster put that nudge one tap from the lock screen,
+so we settled the question: a deliberate change is never silently undone.
 
-## Confirmed on a device
+Every manual path (slider, ±1, preset, tap, and the notification's Slower and
+Faster) goes through `MetronomeController.setCadence`. During a running ramp it
+calls `Cadence.hold`, which sets the sounding cadence and `rampHeld` and leaves
+`chosen`, `rampFrom` and storage alone. `rampTarget` then returns the held value
+for the rest of the run. Outside a ramp, `setCadence` calls `choose` and saves.
 
-**A Safari tab and a home screen launch do not behave the same.** Run on 1
-August 2026: iPhone, iOS 18.7.5, Safari 18.7.5.
+- Stop runs `endRun`, which returns the display to `chosen`, and the next run
+  climbs from it again.
+- Changing the ramp's target or length keeps the hold. Turning the ramp off and
+  on calls `rebaseRamp`, which clears the hold and climbs from where you are.
+- The ramp panel and the notification read "Holding at 172. You took over from
+  the ramp."
 
-Installed to the home screen, with **Keep playing in the background** off,
-Spotify keeps playing and the clicks sit on top of it. The beat stops on an app
-switch or a screen lock, which is what `ambient` promises. That is the documented
-trade, working as documented, and it is the first time anyone has seen it work.
+The hold leaves `chosen` alone on purpose. A −1 twenty minutes into a 150 to 180
+ramp means "slower now", and saving 169 would bring back the defect where a ramp
+saved its own output and so worked once. `CadenceTest` pins that run from start
+to the next run's opening cadence, and `MetronomeControllerTest` pins both
+branches of `setCadence`.
 
-Open the same build in a tab and `ambient` stops Spotify. Safari read the type
-back as `ambient` at the moment of assignment, so the value was accepted and
-kept. It just did not mean anything. Whatever decides mixing in a tab is not the
-session type.
+## Device checks
 
-**The four-type comparison is void.** A throwaway `?session=` override drove
-`ambient`, `playback`, `transient` and `transient-solo` from one deployed build,
-and the status panel logged the readback for each. In a tab, Spotify stopped on
-all four and only `playback` survived an app switch, which reads like a clean
-negative result for `transient`. It is not one. The control failed in that
-environment, so all four rows describe a tab rather than a session type, and
-`transient` has never been tested where the type demonstrably does something.
+Results so far, against the
+[device checklist](background-audio.md#verifying-on-a-device):
 
-**`transient` mixes when installed, and cannot hold the output.** Installed,
-with the type set before the audio context is built, `transient` lets Spotify
-carry on and the clicks play over it, which is what the spec describes and what
-no type managed in a tab. It does not keep it. Across a 40 second run with the
-keep-alive playing, the context dropped to `interrupted` three times while the
-beat was running and the app was in front, recovering a second or two later each
-time. iOS treats transient audio as the first thing to interrupt, and a
-metronome that stutters mid-run is not usable whatever else it does.
+- **Passed:** the app looks right on the phone, and the beat plays over Spotify
+  (step 1's basic case: Spotify first, then Cadence, both audible).
+- **Open:** the rest of step 1 (Spotify's volume through a 10-minute run, Stop
+  leaving Spotify playing, and the reverse order) and steps 2 to 16.
 
-Whether `transient` survives backgrounding is still open. The runs that stopped
-on an app switch had **Keep playing in the background** off, and that switch is
-what starts the keep-alive element. Without it the page is suspended when
-hidden, under any session type, so those runs measured the switch rather than
-the type. The one run with the keep-alive on never left the foreground.
+Two open checks carry a decision:
 
-Testing a type installed needs it set some way other than `?session=`: the
-manifest's `start_url` is `"."`, so iOS drops the query string on a home screen
-launch.
-
-Loose ends. `navigator.audioSession.state` never reported a value on 18.7.5, so
-the spec's session state is either unimplemented or invisible from the web. The
-ringer switch was not tested. `playback` from the home screen was not tested
-against another app's audio either, only in a tab.
-
-One thing to fix whichever way the re-test goes: nothing in the app tells you
-that installing it changes what the switch does. The hint under the switch, the
-status panel and the README all describe mixing without mentioning that a tab
-will not do it.
-
-The instrument behind all of this lives on the `transient-session-probe` branch:
-a session type picker in the status panel that stores the choice and reloads, so
-one launch tests one type, and a timestamped trace of the type, the context
-state, the keep-alive and page visibility. It is a probe rather than a feature
-and is not proposed for merge. The run still outstanding is `transient`,
-installed, keep-alive on, backgrounded for long enough to mean something.
+- **Step 3, underruns.** If the hour-long run's clock falls behind the phone's,
+  or logcat reports a climbing count, `TrackOutput` moves to
+  `PERFORMANCE_MODE_POWER_SAVING`, which the `AudioTrack` reference describes as
+  "deeper internal buffers and better underrun resistance".
+- **Step 7, the locked screen.** `setAuthenticationRequired(false)` asks for
+  Slower, Faster and Stop to run without unlocking, and the OS decides. If the
+  phone demands an unlock, the lock-screen ±1 needs another route.

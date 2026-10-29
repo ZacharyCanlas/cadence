@@ -1,184 +1,185 @@
-# Background playback on the web
+# Background playback on Android
 
-Why the metronome keeps time with the screen off, what it cannot do, and the
-platform behaviour behind both.
+How Cadence keeps exact time over your music with the screen off, and the
+Android rules it relies on.
 
-## The problem
+## Audio focus: never requested
 
-A metronome is only useful if it keeps time for the whole run, and a runner's
-phone spends that run locked in a pocket with a music app in the foreground.
-Browsers work against this deliberately. A page that is not visible gets its
-timers throttled, and a page that is not audible gets suspended outright. Both
-are battery optimisations, and both stop a naive metronome dead within seconds
-of the screen going off.
+A runner's phone spends the run locked in a pocket with Spotify in front, and
+the music has to keep playing at full volume. The web version paused Spotify,
+because Chrome takes audio focus for a page and a page cannot opt out. Android
+itself mixes players: "Two or more Android apps can play audio to the same
+output stream simultaneously, and the system mixes everything together."
 
-Nothing here is a workaround for a bug. These are the documented rules, and the
-approach below is about staying on the right side of them.
+Cadence never calls `requestAudioFocus`. Android's fade and duck rules act only
+on an app that "successfully requested audio focus", and the Android 12 fade-out
+applies only "when an app requests audio focus while another app has the focus
+and is playing". Spotify holds focus for the whole run, so nothing fades, ducks
+or pauses it.
 
-## What browsers actually do
+The track's `AudioAttributes` are `USAGE_MEDIA` with
+`CONTENT_TYPE_SONIFICATION`. `USAGE_MEDIA` puts the beat on the music stream, so
+the volume keys move the beat and Spotify together. The in-app slider scales the
+beat alone through `AudioTrack.setVolume`, linear from 0 to 1. We passed on
+`USAGE_ASSISTANCE_SONIFICATION`: it maps to the system stream, which the volume
+keys skip by default, and the framework makes no guarantee about that mapping.
 
-Three separate mechanisms matter, and they fire at different moments:
+The app holds no `MediaSession`. Media buttons go to "the last app with a
+MediaSession that played audio locally", so your earbuds' play and pause stay
+with Spotify.
 
-1. **Timer throttling.** Once a page is hidden, `setTimeout` and `setInterval`
-   are clamped, commonly to once per second and sometimes to once per minute
-   after a page has been hidden for a while. A worker's timers are throttled
-   less aggressively than the main thread's, but they are not exempt.
-2. **Page suspension.** A hidden page that is not doing anything the browser
-   considers important becomes a freeze candidate. Once frozen, no JavaScript
-   runs at all.
-3. **Audio focus and session category.** The operating system decides which app
-   owns the output. This is what determines whether other players keep going,
-   duck, or pause, and on iOS it also determines whether audio is allowed to
-   continue in the background at all.
+## The foreground service
 
-Playing audio is the strongest signal a page can send against the first two.
-A page the browser considers to be actively playing media is not a freeze
-candidate and does not get the harshest timer clamps.
+Start launches `RunService`, a started, unbound foreground service of type
+`mediaPlayback`, for the length of the run. Android sets no timeout on
+`mediaPlayback`. `onStartCommand` returns `START_NOT_STICKY`, so a killed
+process never restarts the service without a run. Swiping the app away from
+recents keeps the run going, as music players do. The service holds no wake
+lock: "If you're playing audio, the audio system sets and manages a wake lock
+for you."
 
-## The approach
+The ongoing notification carries the cadence as its title, the ramp or call
+status as its text, the run clock as a chronometer, and Slower, Faster and Stop,
+marked as allowed without unlocking (`setAuthenticationRequired(false)`; the OS
+has the final say). Tapping it opens the app. Android 14 lets you dismiss it
+while unlocked, and the service then posts nothing more that run, so a ramp step
+or a call cannot bring it back; the next run posts it again. With notifications
+denied, the run starts anyway and the Output section says Stop is only in the
+app.
 
-Four mechanisms, layered so no single one is load bearing.
+## The frame clock
 
-### 1. Schedule ahead on the audio clock
+The beat is a PCM stream, and the frames written are the clock.
 
-Beats are never fired by a timer. Each one is placed on the audio hardware
-clock in advance, at `anchor + index * (60 / bpm)`, and the hardware plays it
-whether or not JavaScript is running at that moment. A timer that arrives late
-therefore costs nothing, as long as it arrives before the queue drains.
+- `TrackOutput` opens an `AudioTrack` in `MODE_STREAM`: mono float PCM at the
+  device's native output rate (48 kHz when the phone reports none),
+  `PERFORMANCE_MODE_NONE`, and a buffer of about 100 ms, or the device minimum
+  when that is larger.
+- One thread, `cadence-render`, runs at `THREAD_PRIORITY_URGENT_AUDIO`. It
+  renders 20 ms of audio, writes it with a blocking write, and repeats. The
+  blocking write paces the loop to the hardware, so the loop has no timer.
+- A beat is a frame index in that stream. A late thread can starve the track,
+  which is an underrun, and still cannot move a beat: the next frame it writes
+  is the next frame of the grid.
+- The controller hands settings over in a snapshot that the render thread reads
+  once per 20 ms buffer. A tempo, sound or accent change lands on the next beat
+  not yet written.
 
-### 2. Extend the queue the moment the page hides
+You hear each frame later than it is written, by the track's buffer plus the
+route's latency, and Bluetooth adds a lot. `PlaybackClock` maps now to the frame
+being heard from the track's `AudioTimestamp`, re-queried about every 10 s. Until
+a timestamp arrives (at Start, after a route change, or on a route that never
+reports one) it falls back to the playback head. The beat flash, the step count
+and every vibration read this clock.
 
-This is the part that does the real work.
+Output failures never leave a silent "running". A track that fails to open at
+Start leaves the run stopped, with a snackbar. A write returning
+`ERROR_DEAD_OBJECT` recreates the track once, and the run carries on from the
+same write head, losing at most the buffer that failed. A second dead object
+within a second, any other write error, or `startForeground` throwing stops the
+run with "The beat stopped because the audio output failed." Each track logs its
+underrun count when it closes, as `Track closed after N underruns` under the
+logcat tag `Cadence`.
 
-| State | Lookahead | Reason |
-| --- | --- | --- |
-| Visible | 0.25s | Tempo changes need to feel instant |
-| Hidden | 6s | A pump throttled to 1Hz still finds seconds of audio committed |
+## Calls and disconnects
 
-The switch happens on `visibilitychange`, before throttling has a chance to
-bite. Six seconds is chosen to survive the common one-second clamp with a wide
-margin, while staying short enough that the queue is cheap to revoke.
+`RunService` registers an `AudioManager` mode listener, and the controller reads
+the mode at Start. Any mode but `MODE_NORMAL` silences the beat: ringing, a
+carrier call, a VoIP call, call screening, and any mode Android adds later. It
+needs no permission. We passed on `TelephonyCallback`, which needs
+`READ_PHONE_STATE` and sees carrier calls only.
 
-### 3. Hold a media session
+While silenced, the render thread keeps writing silence, so the grid keeps its
+phase. Beats in that window advance the accent count, so the first beat after
+the call carries the right accent, but they play nothing, buzz nothing and count
+as no steps. The run clock counts only frames written while not silenced, and
+the ramp reads that clock, so both pause for the call and pick up where they
+left off. The notification shows "Paused for a call" and drops its chronometer,
+then posts it again from the app's clock.
 
-A near-silent WAV loop, generated at runtime rather than shipped as an asset,
-plays through an `<audio>` element for as long as the metronome runs. This is
-what registers the page as active media playback, which keeps it resident and
-puts the app on the lock screen through the Media Session API, with working
-play, pause and stop controls.
+`RunService` also listens for `ACTION_AUDIO_BECOMING_NOISY`, "sent when a wired
+headset is unplugged, or when an A2DP audio sink is disconnected", and stops the
+run the way Stop does. We ruled out carrying on through the phone speaker.
 
-The loop is deliberately **not** `muted` and not at zero volume. A silent
-element is treated as inaudible by some browsers and gets suspended along with
-the rest of the page. It carries a couple of least significant bits of dither
-instead: inaudible in practice, but not digital silence.
+## Vibration
 
-### 4. Wake lock, as a convenience only
-
-The screen wake lock is requested while running, but nothing depends on it. It
-exists so the display does not sleep while you are looking at the app. The
-system drops it whenever the page is hidden, so it is re-taken on return.
-
-## Everything queued is revocable
-
-Scheduling six seconds ahead means six seconds of decisions are already
-committed to the hardware. If a tempo change, a new sound or a stop simply
-waited for that to drain, the app would feel broken.
-
-Each queued beat therefore keeps a handle on the nodes and timers it created,
-routed through its own gain node so it can be silenced without unpicking
-whatever graph the voice built underneath. Changing anything revokes the
-affected beats and re-plans from a point far enough ahead to be reliable
-(50ms), then re-queues.
-
-Revocation also hands the beat numbering back to where it was, so the accent
-pattern does not shift when the tempo does. A tempo change keeps the beat that
-just sounded exactly where it was and applies the new spacing from there, so
-there is no audible phase jump mid-run.
-
-## The platform matrix
-
-### Android, Chrome
-
-Background playback works. The media session keeps the page resident, and the
-extended lookahead covers the throttling.
-
-Mixing with other audio is not controllable from the web. Chrome decides
-whether your music ducks or pauses when the page takes audio focus, and there
-is no API to influence it. Starting the music first and then starting Cadence
-is the only way to find out what a given device does.
-
-### iOS, Safari
-
-**Install it to the home screen.** How you launched the app decides whether the
-session type does anything at all, which is the thing none of this was written
-from until someone measured it on iOS 18.7.5.
-
-Safari's [Audio Session API](https://github.com/w3c/audio-session/blob/main/explainer.md)
-exposes a session type, which the app sets before it builds the audio context.
-Safari accepts every type and reads each one back unchanged, so nothing is
-rejected and nothing is coerced. What happens next depends on the launch:
-
-| Launched from | Type | Your music keeps playing | Beat survives an app switch |
-| --- | --- | --- | --- |
-| Home screen | `ambient` | Yes | No |
-| Safari tab | `ambient` | No | No |
-| Safari tab | `playback` | No | Yes |
-| Safari tab | `transient` | No | No |
-| Safari tab | `transient-solo` | No | No |
-
-Read the first two rows together. Same build, same phone, same session type,
-opposite results. In a tab, `ambient` takes sole use of the output and stops
-Spotify, which is not what `ambient` means. Whatever governs mixing in a tab, it
-is not the session type.
-
-That gap wrecks the rest of the table. The four-type comparison ran in a tab,
-where the control fails, so `transient` has not had a fair test. Its row says
-what it did in a tab and nothing about what it does installed. The same goes for
-`playback` and `transient-solo`, and the ringer switch was not part of that run
-either.
-
-Native apps combine the `playback` category with the `mixWithOthers` option,
-which is exactly the pairing a running metronome wants. The web does not expose
-that option. Every native running metronome that keeps playing over Spotify with
-the screen locked is using an API the browser does not offer, and a session type
-that mixed *and* survived backgrounding would be the closest the web has come.
-Nobody has ruled one out from the home screen yet.
-
-So the app surfaces the choice instead of pretending it does not exist. The
-**Keep playing in the background** switch selects the session type, the
-consequence is written under the switch, and the status panel reports which case
-the current device is in. Installed, that trade is real: off gives you your
-music, on gives you a beat that survives your pocket. In a tab, off gives you
-neither. See [findings.md](findings.md#confirmed-on-a-device) for the runs.
-
-### Both platforms
-
-Fully closing the app stops the sound. Background audio needs a process to stay
-alive, and a closed page has none. No web app can do this; it requires a native
-background service.
+`VibratorHaptics` plays a 45 ms one-shot per beat, 90 ms on an accent, with
+`VibrationAttributes` usage `USAGE_ALARM`. AOSP's `VibrationSettings` keeps two
+allowlists that matter on a run: usages allowed from a background process, and
+usages kept under Battery Saver. `USAGE_ALARM` is on both. `USAGE_MEDIA` is
+missing from the Battery Saver list, so a vibrate-only run would go still the
+moment you turned Battery Saver on. Alarm haptics follow the phone's alarm
+vibration setting, as the Vibrate hint says. Each vibration is armed when its
+beat is written and posted on a `HandlerThread`, delayed until the playback
+clock reaches the beat's frame.
 
 ## Verifying on a device
 
-None of this can be confirmed in a desktop browser, because the behaviour under
-test is what the mobile OS does to a backgrounded page. On a phone:
+The JVM tests drive the renderer and the controller against fakes. Audio
+routing, calls, vibration and a backgrounded app show up only on a phone, so
+install the release APK and run each check below. For the underrun count,
+install Android platform-tools on the computer, connect the phone with USB
+debugging on, and run `adb logcat -s Cadence`.
 
-1. Start music, then start Cadence. Confirm both are audible.
-2. Switch to another app. The beat should continue.
-3. Lock the screen. The beat should continue, and the lock screen should show
-   Cadence with a stop control.
-4. Leave it locked for several minutes. The beat should not drift or stutter.
-
-If the music pauses on iPhone, check how you opened the app before you touch any
-setting. From a tab it pauses whatever you choose. From the home screen, turning
-background mode off hands it back.
+1. **Mixing.** Play Spotify, then Start Cadence. Pass: both are audible at full
+   volume, Spotify's volume holds at Start and through a 10-minute run, and Stop
+   leaves Spotify playing. Then start Cadence first and Spotify second. Pass:
+   both play.
+2. **Bluetooth.** Repeat step 1 on Bluetooth earbuds. Pass: both streams come
+   through the earbuds.
+3. **An hour, locked.** Run 60 minutes at 180 with the screen locked and Spotify
+   in front. Pass: the run clock reads 60:00 when the phone's clock says an hour
+   has passed (±1 s), and the step count reads 10,800 (±1). A larger gap means
+   underruns, which logcat's count confirms.
+4. **Timing by ear.** Across the same run, change the tempo, sound and accent in
+   the app, and the tempo with the notification's Slower and Faster. Pass: no
+   drift or stutter, and each change lands on the next beat with no stumble.
+5. **Controls.** Use every control: cadence slider and ±1, tap your stride, the
+   six presets, the eight sounds and volume, the accents, Click and Vibrate, the
+   ramp, the clock and steps. Pass: each works and persists, with the web
+   version's ranges, defaults, presets, accents and hints. A/B the eight sounds
+   against the web version while its site is still up. Pass: they sound alike.
+6. **Earbud buttons.** Mid-run, press play/pause on the earbuds. Pass: Spotify
+   pauses and resumes, and the beat carries on.
+7. **Notification.** Lock the phone mid-run. Pass: the lock screen shows the
+   notification with its title, text and a running chronometer; Slower, Faster
+   and Stop work without unlocking; tapping it opens the app. Then unlock and
+   dismiss it mid-run. Pass: it stays gone through a ramp step and a call, the
+   beat carries on, Stop in the app ends the run, and the next run shows it.
+8. **Disconnect.** Mid-run on earbuds, turn them off. Pass: the beat stops and
+   the app shows "Stopped when your headphones disconnected".
+9. **Vibration.** Turn Click off and Vibrate on, then run with the screen off
+   for 10 minutes. Pass: every beat buzzes, accents longer. Repeat with Battery
+   Saver on.
+10. **Calls.** Mid-run with the ramp climbing, take an incoming carrier call,
+    then a WhatsApp call. Pass: silence from ringing to hang-up, then the beat
+    resumes on the grid. The step count leaves out the silent stretch, the run
+    clock reads the same after the call as before it, and the ramp resumes from
+    the cadence it had reached. The notification shows "Paused for a call"
+    during the call, and its chronometer matches the app's clock afterwards.
+11. **Settings.** Change several, force stop the app, reopen. Pass: all kept.
+12. **Preview.** Stopped, Click on, pick a sound, then an accent. Pass: each
+    pick plays one beat.
+13. **Screen.** Pass: the screen stays on while the app is in front and running,
+    and sleeps on its usual timeout otherwise.
+14. **Ramp hold.** Choose 150, ramp to 180, Start, and press Slower in the
+    notification partway up. Pass: the cadence holds there until Stop, and the
+    notification reads "Holding at N. You took over from the ramp." Stop shows
+    150, and the next run climbs from 150 again.
+15. **Swipe away.** Mid-run, swipe the app away from recents. Pass: the beat and
+    the notification continue, and Stop in the notification ends the run.
+16. **Route changes.** Mid-run on the speaker, connect Bluetooth earbuds. Then
+    move the output between two connected devices in the system output switcher.
+    Pass, each time: the beat, vibration and step count carry on along the grid,
+    or the run stops with the audio output failure message, and it never shows
+    "running" with no sound. A move from earbuds to the speaker can send the
+    disconnect broadcast, so the headphones message passes there too.
 
 ## Sources
 
-- [Audio Session API explainer, W3C](https://github.com/w3c/audio-session/blob/main/explainer.md)
-- [AudioSession.type, MDN](https://developer.mozilla.org/docs/Web/API/AudioSession/type)
-- [iOS web apps and the Media Session API, David Bushell](https://dbushell.com/2023/03/20/ios-pwa-media-session-api/)
-- [iOS audio lock screen problem in a PWA, Apple Developer Forums](https://developer.apple.com/forums/thread/762582)
-- [Media playback in a PWA with the phone locked, Discourse Meta](https://meta.discourse.org/t/media-playback-with-pwa-keep-playing-when-phone-locked/182219)
-- [Web Audio in service workers for Media Session, w3c/mediasession issue 232](https://github.com/w3c/mediasession/issues/232)
-- [Audio capabilities of PWAs today](https://whatpwacando.today/audio/)
-- [Audio player PWA behaviour, Progressier](https://progressier.com/pwa-capabilities/audio-player-pwa)
+- [Manage audio focus, Android Developers](https://developer.android.com/media/optimize/audio-focus)
+- [Keep the device awake, Android Developers](https://developer.android.com/develop/background-work/background-tasks/awake)
+- [Responding to media buttons, Android Developers](https://developer.android.com/media/legacy/media-buttons)
+- [Foreground service timeouts, Android Developers](https://developer.android.com/develop/background-work/services/fgs/timeout)
+- [AudioTrack reference](https://developer.android.com/reference/android/media/AudioTrack)
+- [AudioManager reference](https://developer.android.com/reference/android/media/AudioManager)
