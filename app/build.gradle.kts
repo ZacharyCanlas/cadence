@@ -21,8 +21,8 @@ android {
         targetSdk = 36
         // Android refuses an APK whose versionCode is not above the installed copy's,
         // so every APK that leaves this machine bumps it, committed first.
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     signingConfigs {
