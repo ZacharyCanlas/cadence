@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cadence</string>
+
+    <string name="notification_channel">Running</string>
+    <plurals name="notification_title">
+        <item quantity="one">%1$d step per minute</item>
+        <item quantity="other">%1$d steps per minute</item>
+    </plurals>
+    <string name="status_running">Running</string>
+    <string name="status_paused_for_call">Paused for a call</string>
+    <string name="status_ramp_climbing">Climbing to %1$d</string>
+    <string name="status_ramp_holding">Holding at %1$d</string>
+    <string name="status_ramp_held">Holding at %1$d. You took over from the ramp.</string>
+    <string name="action_slower">Slower</string>
+    <string name="action_faster">Faster</string>
+    <string name="action_stop">Stop</string>
 </resources>
