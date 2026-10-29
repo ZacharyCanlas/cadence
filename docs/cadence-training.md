@@ -79,8 +79,8 @@ metronome feature, and for running each division means something specific:
 The larger metronome apps ship twenty or more sounds, and the reason is
 environmental rather than aesthetic: a sound that cuts through traffic is
 different from one that sits comfortably under music through headphones on a
-quiet trail. Cadence synthesises eight rather than shipping audio files, which
-keeps the whole app a few kilobytes and working offline from first install.
+quiet trail. Cadence synthesises eight on the phone rather than shipping audio
+files, so each accent is a re-pitched variant of its own voice.
 
 Each is described in the app by where it works, not by what it is:
 
@@ -109,8 +109,8 @@ target.
 ### Vibration
 
 Haptic feedback is offered by most running metronomes for treadmills, races
-where audio is impractical, and group runs. It is available on Android and not
-on iPhone, which does not expose the Vibration API to the browser.
+where audio is impractical, and group runs. Cadence uses the phone's alarm
+vibration, which keeps buzzing under Battery Saver.
 
 ## Deliberately not built
 
@@ -118,8 +118,8 @@ on iPhone, which does not expose the Vibration API to the browser.
   session to be meaningful. The app has no sensor access and stores nothing
   beyond your settings.
 - **Music library integration.** Matching a track's BPM to a target cadence is
-  a real feature in some apps, but it needs a music service integration that a
-  static, dependency-free page cannot provide.
+  a real feature in some apps, but it needs a music service account and network
+  calls, and the app has neither.
 - **Interval and workout timers.** Plausible, but a different product. The ramp
   covers the cadence-specific case.
 
