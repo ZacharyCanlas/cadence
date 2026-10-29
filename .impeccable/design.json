@@ -1,0 +1,510 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T13:54:22+00:00",
+  "title": "Design System: Cadence",
+  "extensions": {
+    "colorMeta": {
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Band Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.2 264.5)",
+          "oklch(25% 0.2 264.5)",
+          "oklch(35% 0.2 264.5)",
+          "oklch(47% 0.2 264.5)",
+          "oklch(59% 0.2 264.5)",
+          "oklch(71% 0.2 264.5)",
+          "oklch(83% 0.2 264.5)",
+          "oklch(95% 0.2 264.5)"
+        ],
+        "canonical": "oklch(49.1% 0.216 264.5)"
+      },
+      "cobalt-deep": {
+        "role": "primary",
+        "displayName": "Night Cobalt",
+        "tonalRamp": [
+          "oklch(15% 0.17 265.4)",
+          "oklch(25% 0.17 265.4)",
+          "oklch(35% 0.17 265.4)",
+          "oklch(47% 0.17 265.4)",
+          "oklch(59% 0.17 265.4)",
+          "oklch(71% 0.17 265.4)",
+          "oklch(83% 0.17 265.4)",
+          "oklch(95% 0.17 265.4)"
+        ],
+        "canonical": "oklch(38.1% 0.168 265.4)"
+      },
+      "cobalt-tint": {
+        "role": "primary",
+        "displayName": "Cobalt Tint",
+        "tonalRamp": [
+          "oklch(15% 0.12 265)",
+          "oklch(25% 0.12 265)",
+          "oklch(35% 0.12 265)",
+          "oklch(47% 0.12 265)",
+          "oklch(59% 0.12 265)",
+          "oklch(71% 0.12 265)",
+          "oklch(83% 0.12 265)",
+          "oklch(95% 0.12 265)"
+        ]
+      },
+      "cobalt-container": {
+        "role": "primary",
+        "displayName": "Cobalt Wash",
+        "tonalRamp": [
+          "oklch(15% 0.05 266)",
+          "oklch(25% 0.05 266)",
+          "oklch(35% 0.05 266)",
+          "oklch(47% 0.05 266)",
+          "oklch(59% 0.05 266)",
+          "oklch(71% 0.05 266)",
+          "oklch(83% 0.05 266)",
+          "oklch(95% 0.05 266)"
+        ]
+      },
+      "cobalt-ink": {
+        "role": "primary",
+        "displayName": "Cobalt Ink",
+        "tonalRamp": [
+          "oklch(15% 0.14 266)",
+          "oklch(25% 0.14 266)",
+          "oklch(35% 0.14 266)",
+          "oklch(47% 0.14 266)",
+          "oklch(59% 0.14 266)",
+          "oklch(71% 0.14 266)",
+          "oklch(83% 0.14 266)",
+          "oklch(95% 0.14 266)"
+        ]
+      },
+      "lime": {
+        "role": "secondary",
+        "displayName": "Hi-Vis Lime",
+        "tonalRamp": [
+          "oklch(15% 0.2 121.5)",
+          "oklch(25% 0.2 121.5)",
+          "oklch(35% 0.2 121.5)",
+          "oklch(47% 0.2 121.5)",
+          "oklch(59% 0.2 121.5)",
+          "oklch(71% 0.2 121.5)",
+          "oklch(83% 0.2 121.5)",
+          "oklch(95% 0.2 121.5)"
+        ],
+        "canonical": "oklch(89.6% 0.204 121.5)"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.011 260.6)",
+          "oklch(25% 0.011 260.6)",
+          "oklch(35% 0.011 260.6)",
+          "oklch(47% 0.011 260.6)",
+          "oklch(59% 0.011 260.6)",
+          "oklch(71% 0.011 260.6)",
+          "oklch(83% 0.011 260.6)",
+          "oklch(95% 0.011 260.6)"
+        ],
+        "canonical": "oklch(17.7% 0.011 260.6)"
+      },
+      "laminate": {
+        "role": "neutral",
+        "displayName": "Laminate",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(35% 0 0)",
+          "oklch(47% 0 0)",
+          "oklch(59% 0 0)",
+          "oklch(71% 0 0)",
+          "oklch(83% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "on-band-muted": {
+        "role": "neutral",
+        "displayName": "Band Muted",
+        "tonalRamp": [
+          "oklch(15% 0.05 269.6)",
+          "oklch(25% 0.05 269.6)",
+          "oklch(35% 0.05 269.6)",
+          "oklch(47% 0.05 269.6)",
+          "oklch(59% 0.05 269.6)",
+          "oklch(71% 0.05 269.6)",
+          "oklch(83% 0.05 269.6)",
+          "oklch(95% 0.05 269.6)"
+        ],
+        "canonical": "oklch(87.8% 0.052 269.6)"
+      },
+      "on-band-muted-dark": {
+        "role": "neutral",
+        "displayName": "Band Muted (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.05 268)",
+          "oklch(25% 0.05 268)",
+          "oklch(35% 0.05 268)",
+          "oklch(47% 0.05 268)",
+          "oklch(59% 0.05 268)",
+          "oklch(71% 0.05 268)",
+          "oklch(83% 0.05 268)",
+          "oklch(95% 0.05 268)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "tonalRamp": [
+          "oklch(15% 0.013 262.4)",
+          "oklch(25% 0.013 262.4)",
+          "oklch(35% 0.013 262.4)",
+          "oklch(47% 0.013 262.4)",
+          "oklch(59% 0.013 262.4)",
+          "oklch(71% 0.013 262.4)",
+          "oklch(83% 0.013 262.4)",
+          "oklch(95% 0.013 262.4)"
+        ],
+        "canonical": "oklch(88.7% 0.013 262.4)"
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.02 262)",
+          "oklch(25% 0.02 262)",
+          "oklch(35% 0.02 262)",
+          "oklch(47% 0.02 262)",
+          "oklch(59% 0.02 262)",
+          "oklch(71% 0.02 262)",
+          "oklch(83% 0.02 262)",
+          "oklch(95% 0.02 262)"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "tonalRamp": [
+          "oklch(15% 0.025 263)",
+          "oklch(25% 0.025 263)",
+          "oklch(35% 0.025 263)",
+          "oklch(47% 0.025 263)",
+          "oklch(59% 0.025 263)",
+          "oklch(71% 0.025 263)",
+          "oklch(83% 0.025 263)",
+          "oklch(95% 0.025 263)"
+        ]
+      },
+      "hint-grey": {
+        "role": "neutral",
+        "displayName": "Hint Grey",
+        "tonalRamp": [
+          "oklch(15% 0.027 263)",
+          "oklch(25% 0.027 263)",
+          "oklch(35% 0.027 263)",
+          "oklch(47% 0.027 263)",
+          "oklch(59% 0.027 263)",
+          "oklch(71% 0.027 263)",
+          "oklch(83% 0.027 263)",
+          "oklch(95% 0.027 263)"
+        ],
+        "canonical": "oklch(43.7% 0.027 263)"
+      },
+      "hint-grey-dark": {
+        "role": "neutral",
+        "displayName": "Hint Grey (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.02 263)",
+          "oklch(25% 0.02 263)",
+          "oklch(35% 0.02 263)",
+          "oklch(47% 0.02 263)",
+          "oklch(59% 0.02 263)",
+          "oklch(71% 0.02 263)",
+          "oklch(83% 0.02 263)",
+          "oklch(95% 0.02 263)"
+        ]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Wash",
+        "tonalRamp": [
+          "oklch(15% 0.006 262)",
+          "oklch(25% 0.006 262)",
+          "oklch(35% 0.006 262)",
+          "oklch(47% 0.006 262)",
+          "oklch(59% 0.006 262)",
+          "oklch(71% 0.006 262)",
+          "oklch(83% 0.006 262)",
+          "oklch(95% 0.006 262)"
+        ]
+      },
+      "wash-dark": {
+        "role": "neutral",
+        "displayName": "Wash (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.015 262)",
+          "oklch(25% 0.015 262)",
+          "oklch(35% 0.015 262)",
+          "oklch(47% 0.015 262)",
+          "oklch(59% 0.015 262)",
+          "oklch(71% 0.015 262)",
+          "oklch(83% 0.015 262)",
+          "oklch(95% 0.015 262)"
+        ]
+      },
+      "container": {
+        "role": "neutral",
+        "displayName": "Container",
+        "tonalRamp": [
+          "oklch(15% 0.006 262)",
+          "oklch(25% 0.006 262)",
+          "oklch(35% 0.006 262)",
+          "oklch(47% 0.006 262)",
+          "oklch(59% 0.006 262)",
+          "oklch(71% 0.006 262)",
+          "oklch(83% 0.006 262)",
+          "oklch(95% 0.006 262)"
+        ]
+      },
+      "container-dark": {
+        "role": "neutral",
+        "displayName": "Container (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.013 262)",
+          "oklch(25% 0.013 262)",
+          "oklch(35% 0.013 262)",
+          "oklch(47% 0.013 262)",
+          "oklch(59% 0.013 262)",
+          "oklch(71% 0.013 262)",
+          "oklch(83% 0.013 262)",
+          "oklch(95% 0.013 262)"
+        ]
+      },
+      "outline": {
+        "role": "neutral",
+        "displayName": "Outline",
+        "tonalRamp": [
+          "oklch(15% 0.022 263)",
+          "oklch(25% 0.022 263)",
+          "oklch(35% 0.022 263)",
+          "oklch(47% 0.022 263)",
+          "oklch(59% 0.022 263)",
+          "oklch(71% 0.022 263)",
+          "oklch(83% 0.022 263)",
+          "oklch(95% 0.022 263)"
+        ]
+      },
+      "outline-dark": {
+        "role": "neutral",
+        "displayName": "Outline (dark)",
+        "tonalRamp": [
+          "oklch(15% 0.02 263)",
+          "oklch(25% 0.02 263)",
+          "oklch(35% 0.02 263)",
+          "oklch(47% 0.02 263)",
+          "oklch(59% 0.02 263)",
+          "oklch(71% 0.02 263)",
+          "oklch(83% 0.02 263)",
+          "oklch(95% 0.02 263)"
+        ]
+      },
+      "paper-dark": {
+        "role": "neutral",
+        "displayName": "Paper Dark",
+        "tonalRamp": [
+          "oklch(15% 0.008 262)",
+          "oklch(25% 0.008 262)",
+          "oklch(35% 0.008 262)",
+          "oklch(47% 0.008 262)",
+          "oklch(59% 0.008 262)",
+          "oklch(71% 0.008 262)",
+          "oklch(83% 0.008 262)",
+          "oklch(95% 0.008 262)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The cadence figure on the band; one per screen."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Session line on the band: clock and steps."
+      },
+      "figure-body": {
+        "displayName": "Figure Body",
+        "purpose": "Figures in layout: split rows, preset cadences, slider values."
+      },
+      "title-large": {
+        "displayName": "Title Large",
+        "purpose": "Start/Stop label."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Control labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Hints and status lines."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Tap hint inside the Tap button."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Cell labels."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "Uppercase module header tabs and the unit under the cadence."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dock",
+        "value": "Material tonalElevation 3dp, shadowElevation 6dp",
+        "purpose": "Lifts the Start/Stop dock over scrolling modules; the only shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "beat-flash",
+        "value": "120ms colour hold, no movement",
+        "purpose": "The beat lights the ring or accent dot in lime; identical with animations off."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "font-1.25x",
+        "value": "fontScale 1.25",
+        "purpose": "Cell grids cap at 3 columns."
+      },
+      {
+        "name": "font-1.6x",
+        "value": "fontScale 1.6",
+        "purpose": "Value sliders stack label and value over the track."
+      },
+      {
+        "name": "font-1.7x",
+        "value": "fontScale 1.7",
+        "purpose": "Cell grids cap at 2 columns."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Start Button",
+      "kind": "button",
+      "refersTo": "button-start",
+      "description": "Docked full-width Start, Band Cobalt.",
+      "html": "<button class=\"ds-btn-start\">Start</button>",
+      "css": ".ds-btn-start{width:320px;height:60px;background:#1F4FD8;color:#fff;border:none;border-radius:14px;padding:0 24px;font:400 22px/28px Roboto,sans-serif;cursor:pointer;transition:background .15s}.ds-btn-start:hover,.ds-btn-start:active{background:#16359A}.ds-btn-start:focus-visible{outline:3px solid #0E1116;outline-offset:2px}"
+    },
+    {
+      "name": "Stop Button",
+      "kind": "button",
+      "refersTo": "button-stop",
+      "description": "The dock button while running, inverted to Ink.",
+      "html": "<button class=\"ds-btn-stop\">Stop</button>",
+      "css": ".ds-btn-stop{width:320px;height:60px;background:#0E1116;color:#fff;border:none;border-radius:14px;padding:0 24px;font:400 22px/28px Roboto,sans-serif;cursor:pointer}.ds-btn-stop:hover{background:#3B4352}.ds-btn-stop:focus-visible{outline:3px solid #1F4FD8;outline-offset:2px}"
+    },
+    {
+      "name": "Tap Button",
+      "kind": "button",
+      "refersTo": "button-tap",
+      "description": "Outlined tap-tempo button with a counting hint.",
+      "html": "<button class=\"ds-btn-tap\"><span class=\"ds-btn-tap-t\">Tap your stride</span><span class=\"ds-btn-tap-h\">Tap along as you run to read your cadence</span></button>",
+      "css": ".ds-btn-tap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:320px;min-height:64px;background:transparent;color:#1F4FD8;border:1px solid #7A8292;border-radius:10px;cursor:pointer}.ds-btn-tap-t{font:600 16px/24px Roboto,sans-serif}.ds-btn-tap-h{font:400 12px/16px Roboto,sans-serif}.ds-btn-tap:hover{background:rgba(31,79,216,.08)}.ds-btn-tap:focus-visible{outline:3px solid #1F4FD8;outline-offset:2px}"
+    },
+    {
+      "name": "Module Header Tab",
+      "kind": "custom",
+      "refersTo": "module-tab",
+      "description": "Ink tab seated on a 2dp ink rule, heading every module.",
+      "html": "<div class=\"ds-module\"><span class=\"ds-module-tab\">PRESETS</span><div class=\"ds-module-rule\"></div></div>",
+      "css": ".ds-module{width:320px}.ds-module-tab{display:inline-block;background:#0E1116;color:#fff;border-radius:4px 4px 0 0;padding:3px 8px;font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;line-height:16px;letter-spacing:1.4px}.ds-module-rule{height:2px;background:#0E1116}"
+    },
+    {
+      "name": "Cell Grid",
+      "kind": "chip",
+      "refersTo": "cell",
+      "description": "Ruled option cells; the chosen cell inked solid.",
+      "html": "<div class=\"ds-cells\" role=\"radiogroup\"><button class=\"ds-cell\" role=\"radio\" aria-checked=\"false\"><b>165</b><span>Recovery</span></button><button class=\"ds-cell ds-cell-on\" role=\"radio\" aria-checked=\"true\"><b>170</b><span>Easy</span></button><button class=\"ds-cell\" role=\"radio\" aria-checked=\"false\"><b>175</b><span>Steady</span></button></div>",
+      "css": ".ds-cells{display:grid;grid-template-columns:repeat(3,1fr);width:320px;border:1px solid #D5DAE3;border-radius:4px;overflow:hidden}.ds-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:56px;padding:8px;background:transparent;color:#0E1116;border:none;border-left:1px solid #D5DAE3;cursor:pointer}.ds-cell:first-child{border-left:none}.ds-cell b{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:500;font-size:20px;line-height:24px}.ds-cell span{font:500 14px/20px Roboto,sans-serif}.ds-cell:hover{background:#F1F3F6}.ds-cell:focus-visible{outline:2px solid #1F4FD8;outline-offset:-2px}.ds-cell-on,.ds-cell-on:hover{background:#0E1116;color:#fff}"
+    },
+    {
+      "name": "Split Rows",
+      "kind": "custom",
+      "refersTo": "split-row",
+      "description": "The ramp printed as pace-band splits; the reached row lit lime.",
+      "html": "<div class=\"ds-splits\"><div class=\"ds-split\"><span>min 0</span><b>150</b></div><div class=\"ds-split\"><span>min 2</span><b>156</b></div><div class=\"ds-split ds-split-lit\"><span>min 4</span><b>162</b></div><div class=\"ds-split\"><span>min 6</span><b>168</b></div></div>",
+      "css": ".ds-splits{width:320px;border:1px solid #D5DAE3;border-radius:4px;overflow:hidden}.ds-split{display:flex;justify-content:space-between;padding:8px 16px;border-top:1px solid #D5DAE3;color:#0E1116;font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:500;font-size:20px;line-height:24px}.ds-split:first-child{border-top:none}.ds-split b{font-weight:600}.ds-split-lit{background:#C8F031;color:#0E1116}"
+    },
+    {
+      "name": "Pace Band",
+      "kind": "card",
+      "refersTo": "band",
+      "description": "The cobalt band: beat ring, cadence figure, session line, status.",
+      "html": "<div class=\"ds-band\"><div class=\"ds-band-ring\"><svg viewBox=\"0 0 200 200\" width=\"200\" height=\"200\"><circle cx=\"100\" cy=\"100\" r=\"86\" fill=\"none\" stroke=\"rgba(201,214,250,.45)\" stroke-width=\"3\"/><circle cx=\"100\" cy=\"14\" r=\"8.75\" fill=\"#C8F031\"/><circle cx=\"186\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"100\" cy=\"186\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"14\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/></svg><div class=\"ds-band-fig\"><b>162</b><span>steps per minute</span></div></div><div class=\"ds-band-session\">4:12 · 652 steps</div><div class=\"ds-band-status\">Climbing to 180 over 10 min</div></div>",
+      "css": ".ds-band{width:320px;background:#1F4FD8;color:#fff;padding:20px 20px 28px;display:flex;flex-direction:column;align-items:center}.ds-band-ring{position:relative;width:200px;height:200px}.ds-band-fig{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.ds-band-fig b{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:88px;line-height:84px}.ds-band-fig span{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;color:#C9D6FA}.ds-band-session{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:500;font-size:26px;line-height:30px;margin-top:4px}.ds-band-status{font:400 14px/20px Roboto,sans-serif;color:#C9D6FA;margin-top:6px}"
+    },
+    {
+      "name": "Switch Row",
+      "kind": "input",
+      "description": "Toggleable row: title over hint, Material switch at the end.",
+      "html": "<label class=\"ds-switchrow\"><span class=\"ds-switchrow-t\"><b>Vibrate</b><span>Uses your phone's alarm vibration setting</span></span><input type=\"checkbox\" class=\"ds-switch\" checked></label>",
+      "css": ".ds-switchrow{display:flex;align-items:center;width:320px;min-height:64px;padding:8px 0;cursor:pointer}.ds-switchrow-t{flex:1;padding-right:16px;display:flex;flex-direction:column}.ds-switchrow-t b{font:600 16px/24px Roboto,sans-serif;color:#0E1116}.ds-switchrow-t span{font:400 14px/20px Roboto,sans-serif;color:#4A5261}.ds-switch{appearance:none;width:52px;height:32px;border-radius:16px;background:#F1F3F6;border:2px solid #7A8292;position:relative;transition:background .15s}.ds-switch::after{content:'';position:absolute;top:6px;left:6px;width:16px;height:16px;border-radius:50%;background:#7A8292;transition:all .15s}.ds-switch:checked{background:#1F4FD8;border-color:#1F4FD8}.ds-switch:checked::after{left:22px;top:2px;width:24px;height:24px;background:#fff}.ds-switch:focus-visible{outline:3px solid #1F4FD8;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Pace Band",
+    "overview": "The run screen is a runner's pace band: a laminated strip with one cobalt band holding the cadence and the ramp printed as split rows you read like splits. Everything below the band is white lamination ruled into tight modules, each under a small ink header tab seated on its top rule, the way a printed band or race card divides its fields. Measurements are always condensed tabular figures; words are Roboto. Hi-vis lime appears only where the runner is right now.\n\nDensity is packed and tabular rather than airy: modules sit 16dp apart, options are ruled cells in a grid, and the one large figure is the cadence in the band. Dark mode is the same band at night: ink ground, a deeper cobalt band, the same lime. The world rejects the category default of a centred number inside a progress ring on a tinted surface; the band is edge-to-edge and the ring is a thin beat marker, not a progress meter.",
+    "keyCharacteristics": [
+      "One edge-to-edge cobalt band under the status bar owns the first viewport.",
+      "Lime marks \"you are here\" and nothing else.",
+      "Hairline-ruled modules under ink header tabs, packed tight on a 20dp gutter.",
+      "Condensed tabular figures for every measurement; Roboto for every word.",
+      "Selection is inked solid, never tinted."
+    ],
+    "rules": [
+      {
+        "name": "The You-Are-Here Rule",
+        "body": "Lime marks the runner's present position (the current ramp split, the beat flash) and nothing else. No lime buttons, borders, icons or decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Band-Tinted Rule",
+        "body": "Secondary text and rules on the band are cobalt-tinted (Band Muted), never neutral grey or white at reduced alpha over grey.",
+        "section": "colors"
+      },
+      {
+        "name": "The Figures Rule",
+        "body": "Every number a runner reads (cadence, clock, steps, splits, preset values, slider values) is set in Barlow Condensed with `tnum`, so digits never jitter as they change. Words are never set in the figure face except the header tabs and the unit under the cadence.",
+        "section": "typography"
+      },
+      {
+        "name": "The Scale-Not-Squeeze Rule",
+        "body": "When text grows, grids lose columns and rows stack; labels are never truncated or shrunk.",
+        "section": "layout"
+      },
+      {
+        "name": "The Ruled-Not-Raised Rule",
+        "body": "Modules, cells and split rows are separated by hairlines and ink rules; only the dock casts a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do set every measurement in Barlow Condensed with tabular figures.",
+      "Do keep the cobalt band edge-to-edge under the status bar and give it the screen's only Display figure.",
+      "Do start every new settings group with a module: an uppercase Ink header tab on a 2dp Ink rule, content on the 20dp gutter.",
+      "Do show choices as ruled cells with the selected cell inked solid.",
+      "Do keep the beat flash a colour change with no movement."
+    ],
+    "donts": [
+      "Don't use lime for anything but the runner's current position and the beat flash.",
+      "Don't put the cadence in a progress ring on a tinted card; the ring marks beats, never progress.",
+      "Don't add shadows to modules, cells or rows; only the dock is lifted.",
+      "Don't use neutral grey for secondary text on the band; use Band Muted.",
+      "Don't truncate labels at large font scales; drop grid columns or stack instead."
+    ]
+  }
+}
