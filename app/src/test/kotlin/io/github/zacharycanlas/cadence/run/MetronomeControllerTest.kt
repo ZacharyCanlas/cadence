@@ -121,8 +121,47 @@ class MetronomeControllerTest {
     }
 
     @Test
+    fun `switching the ramp on mid-run climbs from where the run is`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 165, rampOn = false, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(600.0)
+        rig.controller.setRampOn(true)
+        rig.play(1.0)
+        assertEquals("no jump to the target", 165, rig.controller.state.value.currentBpm)
+        rig.play(300.0)
+        assertEquals("halfway after five minutes", 173, rig.controller.state.value.currentBpm)
+    }
+
+    @Test
+    fun `stopping keeps the run's final clock and counts every beat heard by then`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180))
+        rig.controller.start()
+        rig.play(10.0)
+        // 200 ms past the last tick, with no frame drawn to drain the feed.
+        rig.output.step(10)
+        val heard = (0 until 1000).count { k -> Math.round(0.08 * rate + k * rate / 3.0) <= rig.output.playbackHeadPosition() }
+
+        rig.controller.stop()
+
+        assertEquals(10.2, rig.controller.state.value.elapsedSeconds, 1e-9)
+        assertEquals(heard, rig.controller.state.value.steps)
+    }
+
+    @Test
+    fun `a change to the cadence already sounding does not take over a ramp`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 160, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(300.0)
+        assertEquals(170, rig.controller.state.value.currentBpm)
+        rig.controller.setCadence(170)
+        assertFalse(rig.controller.state.value.rampHeld)
+        rig.play(60.0)
+        assertEquals("the climb carries on", 172, rig.controller.state.value.currentBpm)
+    }
+
+    @Test
     fun `a call silences the beat and the end of the call resumes it`() {
-        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180, rampOn = true, rampTo = 200, rampMinutes = 10))
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180, rampOn = true, rampTo = 200, rampMinutes = 10, vibrate = true))
         rig.controller.start()
         rig.play(10.0)
         rig.controller.drain()
@@ -133,7 +172,10 @@ class MetronomeControllerTest {
 
         rig.controller.onModeChanged(AudioManager.MODE_IN_CALL)
         assertTrue(rig.controller.state.value.silenced)
+        // At most the beat already in the buffer when the call began.
+        val armedAtCall = rig.haptics.armed.size + 1
         rig.play(60.0)
+        assertTrue("no haptic is armed during the call", rig.haptics.armed.size <= armedAtCall)
         rig.controller.drain()
         val tail = rig.controller.state.value.steps - stepsBefore
         assertTrue("at most the beats already written before the call are counted, not $tail", tail <= 1)
@@ -146,7 +188,7 @@ class MetronomeControllerTest {
         rig.controller.drain()
         assertTrue("counting again", rig.controller.state.value.steps - stepsBefore - tail >= 28)
         assertEquals("the clock picks up where it was", clockBefore + 10.0, rig.controller.state.value.elapsedSeconds, 0.05)
-        assertEquals("vibrate is off, so nothing is armed", armedBefore, rig.haptics.armed.size)
+        assertTrue("and the haptics come back with the beat", rig.haptics.armed.size - armedBefore >= 28)
     }
 
     @Test

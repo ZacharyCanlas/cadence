@@ -13,9 +13,3 @@ fun clampBpm(value: Double): Int = if (value.isFinite()) clampBpm(value.roundToI
 
 /** Seconds between beats. */
 fun beatPeriod(bpm: Int): Double = 60.0 / bpm
-
-/**
- * Every beat is derived from the anchor rather than accumulated, so float
- * error cannot pile up over a long run.
- */
-fun beatTime(anchor: Double, bpm: Int, index: Int): Double = anchor + index * beatPeriod(bpm)

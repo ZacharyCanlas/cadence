@@ -23,7 +23,7 @@ class ScreenshotTest {
     private val settings = DEFAULT_SETTINGS.copy(bpm = 150, accentEvery = 4, rampOn = true, rampTo = 180, rampMinutes = 10, vibrate = true)
     private val state = RunState(
         running = true, currentBpm = 162, elapsedSeconds = 4 * 60 + 12.0, steps = 652,
-        silenced = false, rampHeld = false, rampFrom = 150, stopReason = null,
+        silenced = false, rampHeld = false, rampFrom = 150, rampStartSeconds = 0.0, stopReason = null,
     )
 
     private val actions = ScreenActions({}, {}, {}, { null }, {}, {}, {}, {}, {}, {}, {}, {}, {})

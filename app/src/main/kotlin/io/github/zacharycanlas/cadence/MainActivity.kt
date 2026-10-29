@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.zacharycanlas.cadence.core.TAP_TIMEOUT_MS
 import io.github.zacharycanlas.cadence.core.TapTempo
 import io.github.zacharycanlas.cadence.run.MetronomeController
 import io.github.zacharycanlas.cadence.run.StopReason
@@ -34,6 +35,7 @@ import io.github.zacharycanlas.cadence.ui.CadenceTheme
 import io.github.zacharycanlas.cadence.ui.ScreenActions
 import io.github.zacharycanlas.cadence.ui.ScreenExtras
 import io.github.zacharycanlas.cadence.ui.TapHint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 /** How long the beat stays lit: a held colour, so it reads the same with animations off. */
@@ -58,6 +60,13 @@ private fun RunScreen(controller: MetronomeController) {
     val snackbars = remember { SnackbarHostState() }
     val tapTempo = remember { TapTempo() }
     var tapHint by remember { mutableStateOf<TapHint>(TapHint.Idle) }
+    // A pause longer than the tap timeout starts a fresh measurement, so the hint goes back to its prompt.
+    LaunchedEffect(tapHint) {
+        if (tapHint != TapHint.Idle) {
+            delay(TAP_TIMEOUT_MS)
+            tapHint = TapHint.Idle
+        }
+    }
     var flash by remember { mutableStateOf<Int?>(null) }
     var announcement by remember { mutableStateOf("") }
     var notificationsDenied by remember { mutableStateOf(false) }

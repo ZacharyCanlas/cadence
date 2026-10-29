@@ -199,8 +199,9 @@ class VoiceKit(private val rate: Int, private val noise: Noise) {
      * the way Chrome's band-limited tables are. A fundamental picks a table
      * from 36 ranges, three per octave, each holding 2^(-range/3) of the
      * partials, and blends it with the next range's. That keeps every partial
-     * below Nyquist and drops a few more besides, which is what the PWA sounded
-     * like. The square is normalised so its Gibbs overshoot peaks at 1.
+     * below Nyquist and drops a few more besides, so each voice keeps the
+     * timbre of the Web Audio graph it was voiced on. The square is
+     * normalised so its Gibbs overshoot peaks at 1.
      * `phase` in cycles, `dt` the fundamental's phase step per frame.
      */
     private fun oddSeries(phase: Double, dt: Double, square: Boolean): Double {

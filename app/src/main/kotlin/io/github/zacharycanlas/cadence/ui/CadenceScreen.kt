@@ -242,13 +242,13 @@ private fun bandStatus(state: RunState, settings: Settings): String? = when {
 private fun rampStatus(state: RunState, settings: Settings): String? = when {
     !settings.rampOn -> null
     state.rampHeld -> stringResource(R.string.status_ramp_held, state.currentBpm)
-    state.running && rampDone(settings.rampMinutes, state.elapsedSeconds) -> stringResource(R.string.status_ramp_holding, settings.rampTo)
+    state.running && rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds) -> stringResource(R.string.status_ramp_holding, settings.rampTo)
     else -> stringResource(R.string.ramp_climbing_over, settings.rampTo, settings.rampMinutes)
 }
 
 private fun climbing(state: RunState, settings: Settings) =
     state.running && settings.rampOn && !state.silenced && !state.rampHeld &&
-        !rampDone(settings.rampMinutes, state.elapsedSeconds)
+        !rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds)
 
 /** The ramp's split points: minute, cadence at that minute, and which one the run has reached (-1 for none). */
 private class Splits(val minutes: List<Double>, val cadences: List<Int>, val reached: Int)
@@ -256,7 +256,7 @@ private class Splits(val minutes: List<Double>, val cadences: List<Int>, val rea
 private fun splits(state: RunState, settings: Settings): Splits {
     val from = if (state.running) state.rampFrom else settings.bpm
     val minutes = (0 until 6).map { it * settings.rampMinutes / 5.0 }
-    val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds } else -1
+    val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds - state.rampStartSeconds } else -1
     return Splits(minutes, minutes.map { rampBpmAt(from, settings.rampTo, settings.rampMinutes, it * 60) }, reached)
 }
 

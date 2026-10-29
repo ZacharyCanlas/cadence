@@ -19,6 +19,10 @@ class Cadence(startingBpm: Int) {
     var rampFrom: Int = chosen
         private set
 
+    /** Run-clock second the ramp climbs from: 0 when a run begins, the switch-on time after [rebaseRamp]. */
+    var rampStartSeconds: Double = 0.0
+        private set
+
     /** Set by [hold]; cleared only by [beginRun] and [rebaseRamp]. */
     var rampHeld: Boolean = false
         private set
@@ -47,6 +51,7 @@ class Cadence(startingBpm: Int) {
     fun beginRun(): Int {
         current = chosen
         rampFrom = chosen
+        rampStartSeconds = 0.0
         rampHeld = false
         return current
     }
@@ -57,7 +62,8 @@ class Cadence(startingBpm: Int) {
     }
 
     /** The ramp switched on mid-run: climb from where you actually are. */
-    fun rebaseRamp(): Int {
+    fun rebaseRamp(atSeconds: Double = 0.0): Int {
+        rampStartSeconds = atSeconds
         rampFrom = current
         rampHeld = false
         return rampFrom
@@ -65,5 +71,5 @@ class Cadence(startingBpm: Int) {
 
     /** Where the ramp should have reached by now, derived from elapsed time rather than accumulated. */
     fun rampTarget(target: Int, minutes: Int, elapsedSeconds: Double): Int =
-        if (rampHeld) current else rampBpmAt(rampFrom, target, minutes, elapsedSeconds)
+        if (rampHeld) current else rampBpmAt(rampFrom, target, minutes, elapsedSeconds - rampStartSeconds)
 }

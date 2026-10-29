@@ -32,7 +32,11 @@ class TrackOutput(context: Context) : AudioOutput {
         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
         .build()
 
-    /** Guards the track's lifecycle, which the render thread (recreating) and the main thread (stopping) both touch. */
+    /**
+     * Guards the track's lifecycle and every main-thread read of it: the render
+     * thread releases and recreates the track on a dead object, and a call on a
+     * released track throws.
+     */
     private val lock = Any()
 
     @Volatile
@@ -41,6 +45,13 @@ class TrackOutput(context: Context) : AudioOutput {
     @Volatile
     private var volume = 1f
     private var thread: Thread? = null
+
+    /**
+     * Set when stopLoop gives up waiting on a render thread stuck in write.
+     * That thread then releases the track itself on its way out, since
+     * releasing it here, under a write in flight, can crash in native code.
+     */
+    private var orphaned = false
     private val stamp = AudioTimestamp()
 
     private fun build(): AudioTrack {
@@ -55,6 +66,8 @@ class TrackOutput(context: Context) : AudioOutput {
     }
 
     override fun open(): Boolean = synchronized(lock) {
+        // A stuck thread from the last run still owns the current track.
+        if (orphaned) return false
         closeLocked()
         try {
             val created = build()
@@ -91,7 +104,7 @@ class TrackOutput(context: Context) : AudioOutput {
 
     override fun setVolume(volume: Float) {
         this.volume = volume
-        track?.setVolume(volume)
+        synchronized(lock) { track?.setVolume(volume) }
     }
 
     /** Render thread only: [stamp] is reused. */
@@ -101,12 +114,19 @@ class TrackOutput(context: Context) : AudioOutput {
     }
 
     /** The head position is an unsigned 32-bit count. */
-    override fun playbackHeadPosition(): Long = (track?.playbackHeadPosition ?: 0).toLong() and 0xffff_ffffL
+    override fun playbackHeadPosition(): Long =
+        synchronized(lock) { (track?.playbackHeadPosition ?: 0).toLong() and 0xffff_ffffL }
 
     override fun startLoop(step: () -> Boolean) {
         thread = Thread({
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
             while (step()) Unit
+            synchronized(lock) {
+                if (orphaned) {
+                    closeLocked()
+                    orphaned = false
+                }
+            }
         }, "cadence-render").also(Thread::start)
     }
 
@@ -120,9 +140,12 @@ class TrackOutput(context: Context) : AudioOutput {
             track?.pause()
             track?.flush()
         }
-        thread?.join(STOP_JOIN_MILLIS)
+        val loop = thread
         thread = null
-        close()
+        loop?.join(STOP_JOIN_MILLIS)
+        synchronized(lock) {
+            if (loop?.isAlive == true) orphaned = true else closeLocked()
+        }
     }
 
     override fun playOnce(samples: FloatArray, frames: Int) {

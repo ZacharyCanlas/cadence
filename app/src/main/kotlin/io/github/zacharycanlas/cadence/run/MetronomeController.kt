@@ -12,6 +12,7 @@ import io.github.zacharycanlas.cadence.core.Renderer
 import io.github.zacharycanlas.cadence.core.Settings
 import io.github.zacharycanlas.cadence.core.SettingsStorage
 import io.github.zacharycanlas.cadence.core.VoiceKit
+import io.github.zacharycanlas.cadence.core.clampBpm
 import io.github.zacharycanlas.cadence.core.findVoice
 import io.github.zacharycanlas.cadence.core.loadSettings
 import io.github.zacharycanlas.cadence.core.normalize
@@ -36,8 +37,9 @@ data class RunState(
     val steps: Int,
     val silenced: Boolean,
     val rampHeld: Boolean,
-    /** Where the running ramp climbs from. */
+    /** Where the running ramp climbs from, and the run-clock second it started climbing. */
     val rampFrom: Int,
+    val rampStartSeconds: Double,
     /** Why the last run ended on its own. Cleared by Start, a Stop and [MetronomeController.consumeStopReason]. */
     val stopReason: StopReason?,
 )
@@ -73,7 +75,7 @@ class MetronomeController(
     private val _state = MutableStateFlow(
         RunState(
             running = false, currentBpm = cadence.current, elapsedSeconds = 0.0, steps = 0,
-            silenced = false, rampHeld = false, rampFrom = cadence.rampFrom, stopReason = null,
+            silenced = false, rampHeld = false, rampFrom = cadence.rampFrom, rampStartSeconds = 0.0, stopReason = null,
         ),
     )
     val state: StateFlow<RunState> = _state.asStateFlow()
@@ -89,6 +91,9 @@ class MetronomeController(
     }
 
     private var run: Run? = null
+
+    /** The run clock when the last run ended, shown until the next Start. */
+    private var finalElapsed = 0.0
     private var ticker: Job? = null
     private var silenced = false
 
@@ -160,6 +165,8 @@ class MetronomeController(
      * alone; otherwise it is a new choice and is saved.
      */
     fun setCadence(value: Int) {
+        // Re-tapping the lit preset, or ±1 at the end of the range, is no change and must not take over a ramp.
+        if (clampBpm(value) == cadence.current) return
         val s = _settings.value
         if (run != null && s.rampOn) {
             cadence.hold(value)
@@ -195,7 +202,7 @@ class MetronomeController(
 
     fun setRampOn(on: Boolean) {
         update(_settings.value.copy(rampOn = on))
-        if (on) cadence.rebaseRamp()
+        if (on) cadence.rebaseRamp(run?.renderer?.elapsedSeconds ?: 0.0)
         publish()
     }
 
@@ -270,6 +277,8 @@ class MetronomeController(
 
     private fun end(reason: StopReason?) {
         val r = run ?: return
+        drain()
+        finalElapsed = r.renderer.elapsedSeconds
         r.active = false
         run = null
         ticker?.cancel()
@@ -315,11 +324,12 @@ class MetronomeController(
         _state.value = RunState(
             running = r != null,
             currentBpm = cadence.current,
-            elapsedSeconds = r?.renderer?.elapsedSeconds ?: _state.value.elapsedSeconds,
+            elapsedSeconds = r?.renderer?.elapsedSeconds ?: finalElapsed,
             steps = feed.steps,
             silenced = r != null && silenced,
             rampHeld = cadence.rampHeld,
             rampFrom = cadence.rampFrom,
+            rampStartSeconds = cadence.rampStartSeconds,
             stopReason = stopReason,
         )
     }

@@ -121,6 +121,20 @@ class CadenceTest {
     }
 
     @Test
+    fun `a ramp switched on mid-run climbs from that moment, not from the start of the run`() {
+        val cadence = Cadence(165)
+        cadence.beginRun()
+        cadence.rebaseRamp(atSeconds = 15 * 60.0)
+
+        assertEquals("no jump at the switch", 165, cadence.rampTarget(180, 10, 15 * 60.0))
+        assertEquals("halfway five minutes later", 173, cadence.rampTarget(180, 10, 20 * 60.0))
+        assertEquals("there ten minutes later", 180, cadence.rampTarget(180, 10, 25 * 60.0))
+
+        cadence.beginRun()
+        assertEquals("a new run climbs from its own start", 0.0, cadence.rampStartSeconds, 0.0)
+    }
+
+    @Test
     fun `a cadence out of range is clamped rather than trusted`() {
         val cadence = Cadence(9999)
         assertEquals(220, cadence.chosen)

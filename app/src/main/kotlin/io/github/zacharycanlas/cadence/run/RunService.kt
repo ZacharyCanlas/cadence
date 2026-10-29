@@ -85,7 +85,11 @@ class RunService : Service() {
                 var posted: Content? = null
                 combine(controller.state, controller.settings) { _, _ -> Content.from(controller, this@RunService) }
                     .collect { content ->
-                        if (dismissed || !controller.state.value.running || content.sameAs(posted)) return@collect
+                        if (!controller.state.value.running) {
+                            stopSelf()
+                            return@collect
+                        }
+                        if (dismissed || content.sameAs(posted)) return@collect
                         notifications.notify(NOTIFICATION_ID, build(content))
                         posted = content
                     }
@@ -127,7 +131,7 @@ class RunService : Service() {
                     state.silenced -> context.getString(R.string.status_paused_for_call)
                     !settings.rampOn -> context.getString(R.string.status_running)
                     state.rampHeld -> context.getString(R.string.status_ramp_held, state.currentBpm)
-                    rampDone(settings.rampMinutes, state.elapsedSeconds) -> context.getString(R.string.status_ramp_holding, settings.rampTo)
+                    rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds) -> context.getString(R.string.status_ramp_holding, settings.rampTo)
                     else -> context.getString(R.string.status_ramp_climbing, settings.rampTo)
                 }
                 val base = if (state.silenced) null else (System.currentTimeMillis() - (state.elapsedSeconds * 1000).toLong()) / 1000
@@ -198,9 +202,12 @@ class ServiceHost(private val context: Context, private val onFailure: () -> Uni
         }
     }
 
-    override fun stopRun() {
-        context.stopService(Intent(context, RunService::class.java))
-    }
+    /**
+     * The service stops itself once the run is over. Stopping it from here
+     * could land before it has called startForeground, which Android
+     * punishes by killing the app.
+     */
+    override fun stopRun() = Unit
 
     override fun audioMode(): Int = audioManager.mode
 }
