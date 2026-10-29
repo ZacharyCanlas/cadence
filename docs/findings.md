@@ -63,6 +63,59 @@ a device.
 
 ## Confirmed on a device
 
-Nothing yet. Findings that need the device checklist in
-[background-audio.md](background-audio.md#verifying-on-a-device) belong here once
-they have been through it.
+**A Safari tab and a home screen launch do not behave the same.** Run on 1
+August 2026: iPhone, iOS 18.7.5, Safari 18.7.5.
+
+Installed to the home screen, with **Keep playing in the background** off,
+Spotify keeps playing and the clicks sit on top of it. The beat stops on an app
+switch or a screen lock, which is what `ambient` promises. That is the documented
+trade, working as documented, and it is the first time anyone has seen it work.
+
+Open the same build in a tab and `ambient` stops Spotify. Safari read the type
+back as `ambient` at the moment of assignment, so the value was accepted and
+kept. It just did not mean anything. Whatever decides mixing in a tab is not the
+session type.
+
+**The four-type comparison is void.** A throwaway `?session=` override drove
+`ambient`, `playback`, `transient` and `transient-solo` from one deployed build,
+and the status panel logged the readback for each. In a tab, Spotify stopped on
+all four and only `playback` survived an app switch, which reads like a clean
+negative result for `transient`. It is not one. The control failed in that
+environment, so all four rows describe a tab rather than a session type, and
+`transient` has never been tested where the type demonstrably does something.
+
+**`transient` mixes when installed, and cannot hold the output.** Installed,
+with the type set before the audio context is built, `transient` lets Spotify
+carry on and the clicks play over it, which is what the spec describes and what
+no type managed in a tab. It does not keep it. Across a 40 second run with the
+keep-alive playing, the context dropped to `interrupted` three times while the
+beat was running and the app was in front, recovering a second or two later each
+time. iOS treats transient audio as the first thing to interrupt, and a
+metronome that stutters mid-run is not usable whatever else it does.
+
+Whether `transient` survives backgrounding is still open. The runs that stopped
+on an app switch had **Keep playing in the background** off, and that switch is
+what starts the keep-alive element. Without it the page is suspended when
+hidden, under any session type, so those runs measured the switch rather than
+the type. The one run with the keep-alive on never left the foreground.
+
+Testing a type installed needs it set some way other than `?session=`: the
+manifest's `start_url` is `"."`, so iOS drops the query string on a home screen
+launch.
+
+Loose ends. `navigator.audioSession.state` never reported a value on 18.7.5, so
+the spec's session state is either unimplemented or invisible from the web. The
+ringer switch was not tested. `playback` from the home screen was not tested
+against another app's audio either, only in a tab.
+
+One thing to fix whichever way the re-test goes: nothing in the app tells you
+that installing it changes what the switch does. The hint under the switch, the
+status panel and the README all describe mixing without mentioning that a tab
+will not do it.
+
+The instrument behind all of this lives on the `transient-session-probe` branch:
+a session type picker in the status panel that stores the choice and reloads, so
+one launch tests one type, and a timestamped trace of the type, the context
+state, the keep-alive and page visibility. It is a probe rather than a feature
+and is not proposed for merge. The run still outstanding is `transient`,
+installed, keep-alive on, backgrounded for long enough to mean something.
