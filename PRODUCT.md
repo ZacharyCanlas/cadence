@@ -19,7 +19,7 @@ It never takes audio focus, so music players keep playing at full volume and kee
 Before the run: choose cadence, sound, accent and ramp. During: phone locked, music app in front, glances at the notification; ±1 and Stop from the lock screen. Calls silence the beat; disconnecting earbuds stops it.
 
 ## Capabilities and Constraints
-Cadence 100–220, tap tempo, six presets, eight synthesised sounds, accents every 2/3/4/6, vibration, cadence ramp, session clock and step count. Sideloaded APK, minSdk 33, English only. No account, no network, no tracking.
+Cadence 100–220, tap tempo, six presets, eight synthesised sounds, accents every 2/3/4/6, vibration, cadence ramp and session clock. Sideloaded APK, minSdk 33, English only. No account, no network, no tracking.
 
 ## Evidence on Hand
 Coaching research behind each feature in docs/cadence-training.md. No testimonials, user counts or benchmarks exist; none may be invented.

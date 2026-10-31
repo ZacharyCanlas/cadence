@@ -25,10 +25,6 @@
         <item quantity="one">%1$d step per minute</item>
         <item quantity="other">%1$d steps per minute</item>
     </plurals>
-    <plurals name="steps">
-        <item quantity="one">%1$s step</item>
-        <item quantity="other">%1$s steps</item>
-    </plurals>
 
     <string name="cadence_slower">One step per minute slower</string>
     <string name="cadence_faster">One step per minute faster</string>

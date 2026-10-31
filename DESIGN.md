@@ -176,7 +176,7 @@ A laminated-paper palette: white and ink, one saturated cobalt, one hi-vis lime 
 ### Neutral
 - **Laminate** (laminate): light ground and every text colour on the band.
 - **Ink** (ink): light text, dark ground, module tabs and their 2dp top rules, selected cells, the running Stop button.
-- **Band Muted** (on-band-muted, on-band-muted-dark): secondary text on the band ("steps per minute", ramp status), unlit beat dots, and at 45-50% alpha the ring and the band's split-strip rules. Tinted from the band, never grey.
+- **Band Muted** (on-band-muted, on-band-muted-dark): secondary text on the band ("steps per minute", ramp status), unlit beat dots, and at 45% alpha the ring. Tinted from the band, never grey.
 - **Hairline** (rule, rule-dark): the 1dp rules of cell grids and split rows; also Material's outlineVariant.
 - **Hint Grey** (hint-grey, hint-grey-dark): hint and explanatory body text under controls.
 - **Wash / Container** (wash, container and their dark pairs): surfaceVariant and surfaceContainer; carries the tonal step buttons.
@@ -196,8 +196,8 @@ A laminated-paper palette: white and ink, one saturated cobalt, one hi-vis lime 
 
 ### Hierarchy
 - **Display** (600, 128sp, 120sp line): the cadence figure on the band. One per screen.
-- **Headline** (500, 26sp, 30sp line): the session line on the band, clock · steps.
-- **Figure Body** (500, 20sp, 24sp line): figures inside running layout: split rows and the band's split strip, preset cadences, slider values. Split-row cadences step up to 600.
+- **Headline** (500, 26sp, 30sp line): the run clock on the band.
+- **Figure Body** (500, 20sp, 24sp line): figures inside running layout: split rows, preset cadences, slider values. Split-row cadences step up to 600.
 - **Title Large** (Roboto 400, 22sp): the Start/Stop label.
 - **Title** (Roboto 600, 16sp): control labels: Tap your stride, switch rows, slider labels.
 - **Body** (Roboto 400, 14sp): hints and status lines. **Body Small** (12sp): the tap hint inside the Tap button.
@@ -205,7 +205,7 @@ A laminated-paper palette: white and ink, one saturated cobalt, one hi-vis lime 
 - **Tab** (Barlow Condensed 600, 13sp, 1.4sp tracking, uppercase): module header tabs; also "steps per minute" under the cadence, in lowercase.
 
 ### Named Rules
-**The Figures Rule.** Every number a runner reads (cadence, clock, steps, splits, preset values, slider values) is set in Barlow Condensed with `tnum`, so digits never jitter as they change. Words are never set in the figure face except the header tabs and the unit under the cadence.
+**The Figures Rule.** Every number a runner reads (cadence, clock, splits, preset values, slider values) is set in Barlow Condensed with `tnum`, so digits never jitter as they change. Words are never set in the figure face except the header tabs and the unit under the cadence.
 
 ## Layout
 
@@ -225,7 +225,7 @@ Flat and ruled. Depth comes from the band's colour block and from 1-2dp ink and 
 
 ## Shapes
 
-Small, near-square corners, like a die-cut laminate. Ruled containers (cell grids, split rows, the band's split strip) and module tabs use 4dp (tabs round only their top corners, sitting flat on the 2dp ink rule). The Tap button uses 10dp; the dock button 14dp. The beat ring and its accent dots are the only circles, and the launcher icon repeats them on Band Cobalt with the downbeat dot in lime.
+Small, near-square corners, like a die-cut laminate. Ruled containers (cell grids, split rows) and module tabs use 4dp (tabs round only their top corners, sitting flat on the 2dp ink rule). The Tap button uses 10dp; the dock button 14dp. The beat ring and its accent dots are the only circles, and the launcher icon repeats them on Band Cobalt with the downbeat dot in lime.
 
 ## Components
 
@@ -248,9 +248,9 @@ Small, near-square corners, like a die-cut laminate. Ruled containers (cell grid
 - **Value slider:** Title label, Material slider with tick marks removed, Figure Body value at the end; disabled rows fade to 38% alpha.
 
 ### Pace Band (signature)
-- **Band:** cobalt block with the beat ring (3dp ring at Band Muted 45%, accent dots 7dp, downbeat dot 1.25x in Laminate), the Display cadence, "steps per minute", the Headline session line and a Body status line.
+- **Band:** cobalt block with the beat ring (3dp ring at Band Muted 45%, accent dots 7dp, downbeat dot 1.25x in Laminate), the Display cadence, "steps per minute", the Headline run clock and a Body status line.
 - **Beat flash:** the beat lights its dot, or the whole ring at double stroke when accents are off, in Lime for 120ms; no movement, so it reads the same with animations off.
-- **Split rows:** the ramp printed as six rows (minute, cadence) inside a 4dp hairline box; the reached row fills Lime with Ink text. While climbing, the same splits print on the band as one 36dp strip of six cells.
+- **Split rows:** the ramp printed as six rows (minute, cadence) inside a 4dp hairline box; the reached row fills Lime with Ink text.
 
 ### Run notification
 - System-styled ongoing workout notification: monochrome beat-ring small icon, chronometer, and −1 / +1 / Stop actions with the same vector glyphs as the screen.

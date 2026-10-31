@@ -76,7 +76,6 @@ import io.github.zacharycanlas.cadence.core.PRESET_BPMS
 import io.github.zacharycanlas.cadence.core.Settings
 import io.github.zacharycanlas.cadence.core.VOICE_IDS
 import io.github.zacharycanlas.cadence.core.formatClock
-import io.github.zacharycanlas.cadence.core.formatCount
 import io.github.zacharycanlas.cadence.core.rampBpmAt
 import io.github.zacharycanlas.cadence.core.rampDone
 import io.github.zacharycanlas.cadence.run.RunState
@@ -207,15 +206,14 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
                 )
             }
         }
-        val session = if (state.running || state.elapsedSeconds > 0) {
-            "${formatClock(state.elapsedSeconds)}  ·  ${pluralStringResource(R.plurals.steps, state.steps, formatCount(state.steps))}"
-        } else {
-            null
+        if (state.running || state.elapsedSeconds > 0) {
+            Text(
+                formatClock(state.elapsedSeconds),
+                style = MaterialTheme.typography.headlineSmall,
+                color = band.onBand,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
-        if (session != null) {
-            Text(session, style = MaterialTheme.typography.headlineSmall, color = band.onBand, modifier = Modifier.padding(top = 4.dp))
-        }
-        if (climbing(state, settings)) BandSplits(state, settings)
         val status = bandStatus(state, settings)
         if (status != null) {
             Text(
@@ -246,10 +244,6 @@ private fun rampStatus(state: RunState, settings: Settings): String? = when {
     else -> stringResource(R.string.ramp_climbing_over, settings.rampTo, settings.rampMinutes)
 }
 
-private fun climbing(state: RunState, settings: Settings) =
-    state.running && settings.rampOn && !state.silenced && !state.rampHeld &&
-        !rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds)
-
 /** The ramp's split points: minute, cadence at that minute, and which one the run has reached (-1 for none). */
 private class Splits(val minutes: List<Double>, val cadences: List<Int>, val reached: Int)
 
@@ -258,32 +252,6 @@ private fun splits(state: RunState, settings: Settings): Splits {
     val minutes = (0 until 6).map { it * settings.rampMinutes / 5.0 }
     val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds - state.rampStartSeconds } else -1
     return Splits(minutes, minutes.map { rampBpmAt(from, settings.rampTo, settings.rampMinutes, it * 60) }, reached)
-}
-
-/** Where the climb has reached, on the surface a mid-run glance lands on: the split rows as one strip. */
-@Composable
-private fun BandSplits(state: RunState, settings: Settings) {
-    val band = LocalBandColors.current
-    val s = splits(state, settings)
-    Row(
-        Modifier
-            .padding(top = 14.dp)
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.extraSmall)
-            .border(1.dp, band.onBandMuted.copy(alpha = 0.5f), MaterialTheme.shapes.extraSmall)
-            .clearAndSetSemantics { },
-    ) {
-        s.cadences.forEachIndexed { index, cadence ->
-            if (index > 0) Box(Modifier.width(1.dp).height(36.dp).background(band.onBandMuted.copy(alpha = 0.5f)))
-            val lit = index == s.reached
-            Box(
-                Modifier.weight(1f).height(36.dp).background(if (lit) band.marker else Color.Transparent),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(cadence.toString(), style = FigureBody, color = if (lit) band.onMarker else band.onBand)
-            }
-        }
-    }
 }
 
 /**

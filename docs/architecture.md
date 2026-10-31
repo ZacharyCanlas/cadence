@@ -16,7 +16,7 @@ app/src/main/kotlin/io/github/zacharycanlas/cadence/
     BeatGrid.kt              cadence range and beat maths (anchor + n * period)
     Renderer.kt              writes the beat into the PCM stream; the frame clock
     Voices.kt                the eight synthesised voices, biquads and noise
-    BeatFeed.kt              written beats waiting to be heard, and the honest step count
+    BeatFeed.kt              written beats waiting to be heard
     Cadence.kt               the cadence chosen vs the cadence sounding, and the ramp hold
     Ramp.kt                  cadence-ramp maths
     TapTempo.kt              rolling-average tap detection
@@ -111,9 +111,9 @@ Covered in depth in [background-audio.md](background-audio.md). In short:
 - Written beats cross to the main thread through a `ConcurrentLinkedQueue`.
   `PlaybackClock` maps now to the frame being heard, from the track's latest
   `AudioTimestamp`, and falls back to the playback head while there is none.
-  The beat flash on each Compose frame, the step count on a 500 ms tick (so it
-  stays right with the screen off) and each vibration's delay all read that
-  clock, so they include Bluetooth output latency.
+  The beat flash on each Compose frame and each vibration's delay both read
+  that clock, so they include Bluetooth output latency. A 500 ms tick also
+  drains the queue, so it stays bounded with the screen off.
 
 Four invariants are worth stating because they are easy to break:
 
@@ -226,9 +226,8 @@ in `BandColors`, shapes, and a type scale that sets figures in Barlow
 Condensed. The screen is a pace band. A cobalt band at the top carries the
 cadence in tabular figures, read at arm's length in daylight while moving.
 Below it, ruled modules under ink tabs hold the setup, read standing still.
-Presets, sounds and accents are a printed cell grid, the ramp is a set of
-split rows, and while the ramp climbs the band shows a split strip. Start and
-Stop sit docked at the bottom.
+Presets, sounds and accents are a printed cell grid, and the ramp is a set of
+split rows. Start and Stop sit docked at the bottom.
 
 Conventions worth preserving:
 

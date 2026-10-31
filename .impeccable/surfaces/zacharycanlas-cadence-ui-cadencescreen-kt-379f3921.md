@@ -17,9 +17,9 @@ THESIS: The run screen is the runner's pace band: one cobalt band holds the cade
 
 OWN-WORLD: White lamination ground, ink #0E1116, cobalt #1F4FD8 band owning the hero, hi-vis lime #C8F031 only for "you are here" (the current ramp row, the beat flash). Ruled hairline modules under small uppercase header tabs, packed tight. Condensed tabular figures for every measurement, Roboto for the rest. Dark: ink ground, deeper cobalt band, same lime.
 
-STORY: The runner sees their cadence first, sets it and the rest in one scroll, taps Start, and mid-run reads cadence, clock, steps and where the ramp has reached.
+STORY: The runner sees their cadence first, sets it and the rest in one scroll, taps Start, and mid-run reads cadence, clock and the ramp's status.
 
-FIRST VIEWPORT: An edge-to-edge cobalt band, under the status bar, holds the beat ring and 172 in huge white tabular figures, "steps per minute", then clock · steps. Below on white: −, slider, +; Tap your stride; presets. Start/Stop docked in a bottom bar above the navigation inset. Signature interaction: the ramp's split rows, the current row lit lime and advancing as the run climbs; the beat lights the band's ring in lime, held 120 ms with no movement when animations are off.
+FIRST VIEWPORT: An edge-to-edge cobalt band, under the status bar, holds the beat ring and 172 in huge white tabular figures, "steps per minute", then the run clock. Below on white: −, slider, +; Tap your stride; presets. Start/Stop docked in a bottom bar above the navigation inset. Signature interaction: the ramp's split rows, the current row lit lime and advancing as the run climbs; the beat lights the band's ring in lime, held 120 ms with no movement when animations are off.
 
 FORM: Pace Band, candidate 3 of 7 in resonance order, seed key c98130fb.
 

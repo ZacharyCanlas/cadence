@@ -1,8 +1,8 @@
 package io.github.zacharycanlas.cadence.run
 
 /**
- * Maps now to the stream frame being heard, shared by haptics, the beat flash
- * and the step count. Extrapolates from the track's latest timestamp, and
+ * Maps now to the stream frame being heard, shared by haptics and the beat
+ * flash. Extrapolates from the track's latest timestamp, and
  * falls back to the playback head while there is none: as the clock settles
  * at start, after a route change, or on a route that never provides one.
  */

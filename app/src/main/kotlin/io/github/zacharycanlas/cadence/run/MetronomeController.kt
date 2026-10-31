@@ -34,7 +34,6 @@ data class RunState(
     val currentBpm: Int,
     /** The run clock: audible time only, so a call pauses it. */
     val elapsedSeconds: Double,
-    val steps: Int,
     val silenced: Boolean,
     val rampHeld: Boolean,
     /** Where the running ramp climbs from, and the run-clock second it started climbing. */
@@ -74,7 +73,7 @@ class MetronomeController(
 
     private val _state = MutableStateFlow(
         RunState(
-            running = false, currentBpm = cadence.current, elapsedSeconds = 0.0, steps = 0,
+            running = false, currentBpm = cadence.current, elapsedSeconds = 0.0,
             silenced = false, rampHeld = false, rampFrom = cadence.rampFrom, rampStartSeconds = 0.0, stopReason = null,
         ),
     )
@@ -216,14 +215,12 @@ class MetronomeController(
     /**
      * Retires every beat the listener has now heard and returns the last
      * audible one, to flash. Called on each Compose frame, and by the tick so
-     * the step count stays right while nothing is drawn.
+     * the queue stays bounded while nothing is drawn.
      */
     fun drain(now: Long = nanoTime()): CommittedBeat? {
         if (run == null) return null
         while (true) feed.enqueue(written.poll() ?: break)
-        val flashed = feed.drainPast(clock.presentedFrame(now))
-        if (feed.steps != _state.value.steps) publish()
-        return flashed
+        return feed.drainPast(clock.presentedFrame(now))
     }
 
     /** Render thread: queue the beat for the feed and arm its haptic, measured from the playback clock. */
@@ -282,7 +279,6 @@ class MetronomeController(
 
     private fun end(reason: StopReason?) {
         val r = run ?: return
-        drain()
         finalElapsed = r.renderer.elapsedSeconds
         r.active = false
         run = null
@@ -330,7 +326,6 @@ class MetronomeController(
             running = r != null,
             currentBpm = cadence.current,
             elapsedSeconds = r?.renderer?.elapsedSeconds ?: finalElapsed,
-            steps = feed.steps,
             silenced = r != null && silenced,
             rampHeld = cadence.rampHeld,
             rampFrom = cadence.rampFrom,
