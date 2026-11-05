@@ -12,6 +12,7 @@ import io.github.zacharycanlas.cadence.core.Renderer
 import io.github.zacharycanlas.cadence.core.Settings
 import io.github.zacharycanlas.cadence.core.SettingsStorage
 import io.github.zacharycanlas.cadence.core.VoiceKit
+import io.github.zacharycanlas.cadence.core.channels
 import io.github.zacharycanlas.cadence.core.clampBpm
 import io.github.zacharycanlas.cadence.core.findVoice
 import io.github.zacharycanlas.cadence.core.loadSettings
@@ -34,15 +35,17 @@ data class RunState(
     val currentBpm: Int,
     /** The run clock: audible time only, so a call pauses it. */
     val elapsedSeconds: Double,
-    val steps: Int,
     val silenced: Boolean,
     val rampHeld: Boolean,
-    /** Where the running ramp climbs from, and the run-clock second it started climbing. */
+    /** Where the ramp climbs, or would climb, from; and the run-clock second it started climbing. */
     val rampFrom: Int,
     val rampStartSeconds: Double,
     /** Why the last run ended on its own. Cleared by Start, a Stop and [MetronomeController.consumeStopReason]. */
     val stopReason: StopReason?,
-)
+) {
+    /** The run clock measured from where the ramp started climbing. */
+    val rampElapsedSeconds: Double get() = elapsedSeconds - rampStartSeconds
+}
 
 /**
  * The process-wide metronome. Public functions run on the main thread, and so
@@ -74,7 +77,7 @@ class MetronomeController(
 
     private val _state = MutableStateFlow(
         RunState(
-            running = false, currentBpm = cadence.current, elapsedSeconds = 0.0, steps = 0,
+            running = false, currentBpm = cadence.current, elapsedSeconds = 0.0,
             silenced = false, rampHeld = false, rampFrom = cadence.rampFrom, rampStartSeconds = 0.0, stopReason = null,
         ),
     )
@@ -123,7 +126,7 @@ class MetronomeController(
         clock.reset(0)
         val next = Run(renderer)
         run = next
-        vibrating = s.vibrate && haptics.available
+        vibrating = s.channels(haptics.available).vibrate
         output.startLoop { step(next) }
         host.startRun()
         ticker = scope.launch {
@@ -203,9 +206,18 @@ class MetronomeController(
         output.setVolume(_settings.value.volume / 100f)
     }
 
+    /** Either way the ramp now starts from what is sounding: switched on it climbs from here, and switched off so would the next switch-on. */
     fun setRampOn(on: Boolean) {
         update(_settings.value.copy(rampOn = on))
-        if (on) cadence.rebaseRamp(run?.renderer?.elapsedSeconds ?: 0.0)
+        cadence.rebaseRamp(run?.renderer?.elapsedSeconds ?: 0.0)
+        publish()
+    }
+
+    /** Ends a mid-run hold: the ramp climbs again, from the cadence now sounding. Settings are untouched. */
+    fun resumeRamp() {
+        val r = run ?: return
+        if (!_settings.value.rampOn || !cadence.rampHeld) return
+        cadence.rebaseRamp(r.renderer.elapsedSeconds)
         publish()
     }
 
@@ -216,14 +228,12 @@ class MetronomeController(
     /**
      * Retires every beat the listener has now heard and returns the last
      * audible one, to flash. Called on each Compose frame, and by the tick so
-     * the step count stays right while nothing is drawn.
+     * the queue stays bounded while nothing is drawn.
      */
     fun drain(now: Long = nanoTime()): CommittedBeat? {
         if (run == null) return null
         while (true) feed.enqueue(written.poll() ?: break)
-        val flashed = feed.drainPast(clock.presentedFrame(now))
-        if (feed.steps != _state.value.steps) publish()
-        return flashed
+        return feed.drainPast(clock.presentedFrame(now))
     }
 
     /** Render thread: queue the beat for the feed and arm its haptic, measured from the playback clock. */
@@ -282,7 +292,6 @@ class MetronomeController(
 
     private fun end(reason: StopReason?) {
         val r = run ?: return
-        drain()
         finalElapsed = r.renderer.elapsedSeconds
         r.active = false
         run = null
@@ -307,7 +316,7 @@ class MetronomeController(
         val normalized = normalize(next)
         _settings.value = normalized
         saveSettings(storage, normalized)
-        vibrating = run != null && normalized.vibrate && haptics.available
+        vibrating = run != null && normalized.channels(haptics.available).vibrate
         pushRenderSettings()
     }
 
@@ -316,7 +325,7 @@ class MetronomeController(
         bpm = cadence.current,
         voice = s.voice,
         accentEvery = s.accentEvery,
-        click = s.click || !(s.vibrate && haptics.available),
+        click = s.channels(haptics.available).sound,
         silenced = silenced,
     )
 
@@ -330,7 +339,6 @@ class MetronomeController(
             running = r != null,
             currentBpm = cadence.current,
             elapsedSeconds = r?.renderer?.elapsedSeconds ?: finalElapsed,
-            steps = feed.steps,
             silenced = r != null && silenced,
             rampHeld = cadence.rampHeld,
             rampFrom = cadence.rampFrom,

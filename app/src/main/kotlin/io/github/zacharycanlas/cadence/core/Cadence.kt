@@ -15,7 +15,7 @@ class Cadence(startingBpm: Int) {
     var current: Int = chosen
         private set
 
-    /** Where the running ramp climbs from. */
+    /** Where the ramp climbs from: during a run with it on, the run's start; otherwise where switching it on would start. */
     var rampFrom: Int = chosen
         private set
 
@@ -58,10 +58,11 @@ class Cadence(startingBpm: Int) {
 
     fun endRun(): Int {
         current = chosen
+        rampFrom = chosen
         return current
     }
 
-    /** The ramp switched on mid-run: climb from where you actually are. */
+    /** The ramp switched on, off or resumed: it climbs, or would climb, from where you actually are. */
     fun rebaseRamp(atSeconds: Double = 0.0): Int {
         rampStartSeconds = atSeconds
         rampFrom = current

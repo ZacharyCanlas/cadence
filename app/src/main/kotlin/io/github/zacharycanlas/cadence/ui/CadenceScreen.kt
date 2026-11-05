@@ -75,10 +75,11 @@ import io.github.zacharycanlas.cadence.core.MIN_RAMP_MINUTES
 import io.github.zacharycanlas.cadence.core.PRESET_BPMS
 import io.github.zacharycanlas.cadence.core.Settings
 import io.github.zacharycanlas.cadence.core.VOICE_IDS
+import io.github.zacharycanlas.cadence.core.channels
 import io.github.zacharycanlas.cadence.core.formatClock
-import io.github.zacharycanlas.cadence.core.formatCount
 import io.github.zacharycanlas.cadence.core.rampBpmAt
-import io.github.zacharycanlas.cadence.core.rampDone
+import io.github.zacharycanlas.cadence.core.RampPhase
+import io.github.zacharycanlas.cadence.core.rampPhase
 import io.github.zacharycanlas.cadence.run.RunState
 import kotlin.math.PI
 import kotlin.math.cos
@@ -99,6 +100,7 @@ class ScreenActions(
     val setRampOn: (Boolean) -> Unit,
     val setRampTo: (Int) -> Unit,
     val setRampMinutes: (Int) -> Unit,
+    val resumeRamp: () -> Unit,
     val openNotificationSettings: () -> Unit,
 )
 
@@ -168,12 +170,10 @@ fun CadenceScreen(
                 .padding(bottom = padding.calculateBottomPadding()),
         ) {
             Band(state, settings, extras.flashPosition, announcement)
-            CadenceModule(state.currentBpm, actions, extras.tapHint)
-            PresetsModule(state.currentBpm, actions.setCadence)
-            SoundModule(settings, actions)
+            if (extras.notificationsDenied) NotificationsOff(actions.openNotificationSettings)
+            CadenceModule(state.currentBpm, settings, rampView(state, settings), actions, extras.tapHint)
+            BeatModule(settings, extras.canVibrate, actions)
             AccentModule(settings.accentEvery, actions.chooseAccent)
-            OutputModule(settings, extras, actions)
-            RampModule(state, settings, actions)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -207,15 +207,15 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
                 )
             }
         }
-        val session = if (state.running || state.elapsedSeconds > 0) {
-            "${formatClock(state.elapsedSeconds)}  ·  ${pluralStringResource(R.plurals.steps, state.steps, formatCount(state.steps))}"
-        } else {
-            null
+        if (state.running || state.elapsedSeconds > 0) {
+            val clock = formatClock(state.elapsedSeconds)
+            Text(
+                if (state.running) clock else stringResource(R.string.band_last_run, clock),
+                style = MaterialTheme.typography.headlineSmall,
+                color = band.onBand,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
-        if (session != null) {
-            Text(session, style = MaterialTheme.typography.headlineSmall, color = band.onBand, modifier = Modifier.padding(top = 4.dp))
-        }
-        if (climbing(state, settings)) BandSplits(state, settings)
         val status = bandStatus(state, settings)
         if (status != null) {
             Text(
@@ -223,7 +223,10 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
                 style = MaterialTheme.typography.bodyMedium,
                 color = band.onBandMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp),
+                // Mid-run changes (a call, a hold, the climb done) are spoken; setup edits to the plan are not.
+                modifier = Modifier.padding(top = 6.dp).then(
+                    if (state.running) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier,
+                ),
             )
         }
         // Spoken, not shown: Start and Stop are announced politely.
@@ -232,59 +235,46 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
 }
 
 @Composable
-private fun bandStatus(state: RunState, settings: Settings): String? = when {
-    !state.running -> null
-    state.silenced -> stringResource(R.string.status_paused_for_call)
-    else -> rampStatus(state, settings)
-}
+private fun bandStatus(state: RunState, settings: Settings): String? =
+    if (state.running && state.silenced) stringResource(R.string.status_paused_for_call) else rampStatus(state, settings)
 
+/** Before a run, the plan; during one, where the climb has got to. */
 @Composable
-private fun rampStatus(state: RunState, settings: Settings): String? = when {
-    !settings.rampOn -> null
-    state.rampHeld -> stringResource(R.string.status_ramp_held, state.currentBpm)
-    state.running && rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds) -> stringResource(R.string.status_ramp_holding, settings.rampTo)
-    else -> stringResource(R.string.ramp_climbing_over, settings.rampTo, settings.rampMinutes)
-}
-
-private fun climbing(state: RunState, settings: Settings) =
-    state.running && settings.rampOn && !state.silenced && !state.rampHeld &&
-        !rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds)
-
-/** The ramp's split points: minute, cadence at that minute, and which one the run has reached (-1 for none). */
-private class Splits(val minutes: List<Double>, val cadences: List<Int>, val reached: Int)
-
-private fun splits(state: RunState, settings: Settings): Splits {
-    val from = if (state.running) state.rampFrom else settings.bpm
-    val minutes = (0 until 6).map { it * settings.rampMinutes / 5.0 }
-    val reached = if (state.running && !state.rampHeld) minutes.indexOfLast { it * 60 <= state.elapsedSeconds - state.rampStartSeconds } else -1
-    return Splits(minutes, minutes.map { rampBpmAt(from, settings.rampTo, settings.rampMinutes, it * 60) }, reached)
-}
-
-/** Where the climb has reached, on the surface a mid-run glance lands on: the split rows as one strip. */
-@Composable
-private fun BandSplits(state: RunState, settings: Settings) {
-    val band = LocalBandColors.current
-    val s = splits(state, settings)
-    Row(
-        Modifier
-            .padding(top = 14.dp)
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.extraSmall)
-            .border(1.dp, band.onBandMuted.copy(alpha = 0.5f), MaterialTheme.shapes.extraSmall)
-            .clearAndSetSemantics { },
-    ) {
-        s.cadences.forEachIndexed { index, cadence ->
-            if (index > 0) Box(Modifier.width(1.dp).height(36.dp).background(band.onBandMuted.copy(alpha = 0.5f)))
-            val lit = index == s.reached
-            Box(
-                Modifier.weight(1f).height(36.dp).background(if (lit) band.marker else Color.Transparent),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(cadence.toString(), style = FigureBody, color = if (lit) band.onMarker else band.onBand)
-            }
-        }
+private fun rampStatus(state: RunState, settings: Settings): String? {
+    if (!settings.rampOn) return null
+    val from = state.rampFrom
+    if (!state.running) return stringResource(R.string.ramp_plan, from, settings.rampTo, settings.rampMinutes)
+    return when (rampPhase(state.rampHeld, from, settings.rampTo, settings.rampMinutes, state.rampElapsedSeconds)) {
+        RampPhase.Held -> stringResource(R.string.status_ramp_held_resume, state.currentBpm)
+        RampPhase.Holding -> stringResource(R.string.status_ramp_holding, settings.rampTo)
+        RampPhase.Easing -> stringResource(R.string.ramp_easing_over, settings.rampTo, settings.rampMinutes)
+        RampPhase.Climbing -> stringResource(R.string.ramp_climbing_over, settings.rampTo, settings.rampMinutes)
     }
 }
+
+private const val SPLITS = 6
+
+private fun splitMinute(index: Int, rampMinutes: Int): Double = index * rampMinutes / (SPLITS - 1.0)
+
+/**
+ * What the ramp controls read from the run, kept narrow so the 500 ms tick
+ * recomposes the Cadence module only when the run reaches a new split.
+ * `reached` is -1 before a run and while held.
+ */
+private data class RampView(val from: Int, val held: Boolean, val reached: Int)
+
+private fun rampView(state: RunState, settings: Settings): RampView {
+    val held = state.running && state.rampHeld
+    val reached = if (state.running && !held) {
+        (0 until SPLITS).indexOfLast { splitMinute(it, settings.rampMinutes) * 60 <= state.rampElapsedSeconds }
+    } else {
+        -1
+    }
+    return RampView(state.rampFrom, held, reached)
+}
+
+/** Disabled controls fade as a group, labels and values included. */
+private const val DISABLED_ALPHA = 0.38f
 
 /**
  * Accent markers round the figure. The beat lights its marker, or the ring
@@ -342,8 +332,26 @@ private fun Hint(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier.padding(top = 8.dp))
 }
 
+/** The warning sits above the setup: without notifications the lock screen has no controls during the run. */
 @Composable
-private fun CadenceModule(bpm: Int, actions: ScreenActions, tapHint: TapHint) {
+private fun NotificationsOff(openSettings: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = Gutter).padding(top = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.notifications_off),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = openSettings) { Text(stringResource(R.string.notifications_settings)) }
+    }
+}
+
+/** Every way of setting the cadence, then the ramp that climbs from it. */
+@Composable
+private fun CadenceModule(bpm: Int, settings: Settings, ramp: RampView, actions: ScreenActions, tapHint: TapHint) {
     Module(R.string.section_cadence) {
         val description = pluralStringResource(R.plurals.cadence_description, bpm, bpm)
         val sliderLabel = stringResource(R.string.cadence_slider)
@@ -362,6 +370,20 @@ private fun CadenceModule(bpm: Int, actions: ScreenActions, tapHint: TapHint) {
             )
             StepButton(R.drawable.ic_faster, R.string.cadence_faster) { actions.nudge(1) }
         }
+        Spacer(Modifier.height(12.dp))
+        CellGrid(
+            items = PRESET_BPMS.indices.toList(),
+            columns = 3,
+            selected = { PRESET_BPMS[it] == bpm },
+            onSelect = { actions.setCadence(PRESET_BPMS[it]) },
+            label = { stringResource(PRESET_LABELS[it].first) },
+            sub = { PRESET_BPMS[it].toString() },
+        )
+        val preset = PRESET_BPMS.indexOf(bpm)
+        if (preset >= 0) {
+            Hint(stringResource(R.string.preset_hint, stringResource(PRESET_LABELS[preset].first), stringResource(PRESET_LABELS[preset].second)))
+        }
+        RampControls(settings, ramp, actions)
         OutlinedButton(
             onClick = { actions.tap() },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 64.dp),
@@ -381,6 +403,44 @@ private fun CadenceModule(bpm: Int, actions: ScreenActions, tapHint: TapHint) {
             }
         }
     }
+}
+
+/** Target, length and splits appear only with the ramp on; the band carries its status. */
+@Composable
+private fun RampControls(settings: Settings, ramp: RampView, actions: ScreenActions) {
+    SwitchRow(
+        label = stringResource(R.string.ramp_switch),
+        hint = stringResource(R.string.ramp_switch_hint, ramp.from),
+        checked = settings.rampOn,
+        onChange = actions.setRampOn,
+    )
+    if (!settings.rampOn) return
+    if (ramp.held) {
+        OutlinedButton(
+            onClick = actions.resumeRamp,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = MaterialTheme.shapes.medium,
+        ) { Text(stringResource(R.string.ramp_resume)) }
+    }
+    ValueSlider(
+        label = R.string.ramp_target,
+        sliderLabel = stringResource(R.string.ramp_target_slider),
+        value = settings.rampTo,
+        range = MIN_BPM..MAX_BPM,
+        shown = settings.rampTo.toString(),
+        spoken = pluralStringResource(R.plurals.cadence_description, settings.rampTo, settings.rampTo),
+        onChange = actions.setRampTo,
+    )
+    ValueSlider(
+        label = R.string.ramp_over,
+        sliderLabel = stringResource(R.string.ramp_over_slider),
+        value = settings.rampMinutes,
+        range = MIN_RAMP_MINUTES..MAX_RAMP_MINUTES,
+        shown = stringResource(R.string.ramp_minutes, settings.rampMinutes),
+        spoken = pluralStringResource(R.plurals.minutes_description, settings.rampMinutes, settings.rampMinutes),
+        onChange = actions.setRampMinutes,
+    )
+    SplitRows(settings, ramp)
 }
 
 /** Sliders move in whole steps; a tick drawn for each of a hundred steps reads as a dashed track. */
@@ -412,6 +472,7 @@ private fun <T> CellGrid(
     onSelect: (T) -> Unit,
     label: @Composable (T) -> String,
     sub: @Composable (T) -> String?,
+    enabled: Boolean = true,
 ) {
     val band = LocalBandColors.current
     val scale = LocalDensity.current.fontScale
@@ -425,17 +486,16 @@ private fun <T> CellGrid(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraSmall)
             .border(1.dp, band.rule, MaterialTheme.shapes.extraSmall)
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .selectableGroup(),
     ) {
         items.chunked(cols).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) HorizontalDivider(thickness = 1.dp, color = band.rule)
+            // A short last row stretches across the width: an empty cell reads as a missing option.
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                for (index in 0 until cols) {
+                row.forEachIndexed { index, item ->
                     if (index > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(band.rule))
-                    val item = row.getOrNull(index)
-                    Box(Modifier.weight(1f)) {
-                        if (item != null) Cell(selected(item), { onSelect(item) }, label(item), sub(item))
-                    }
+                    Box(Modifier.weight(1f)) { Cell(selected(item), enabled, { onSelect(item) }, label(item), sub(item)) }
                 }
             }
         }
@@ -443,7 +503,7 @@ private fun <T> CellGrid(
 }
 
 @Composable
-private fun Cell(selected: Boolean, onClick: () -> Unit, label: String, sub: String?) {
+private fun Cell(selected: Boolean, enabled: Boolean, onClick: () -> Unit, label: String, sub: String?) {
     val colors = MaterialTheme.colorScheme
     Surface(
         color = if (selected) colors.onSurface else Color.Transparent,
@@ -451,7 +511,7 @@ private fun Cell(selected: Boolean, onClick: () -> Unit, label: String, sub: Str
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick),
     ) {
         Column(
             Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -464,31 +524,27 @@ private fun Cell(selected: Boolean, onClick: () -> Unit, label: String, sub: Str
     }
 }
 
+/**
+ * The beat's two channels and the sound's voice and level. One channel always
+ * stays on, so a locked switch says on its own row what would unlock it.
+ */
 @Composable
-private fun PresetsModule(bpm: Int, setCadence: (Int) -> Unit) {
-    Module(R.string.section_presets) {
-        CellGrid(
-            items = PRESET_BPMS.indices.toList(),
-            columns = 3,
-            selected = { PRESET_BPMS[it] == bpm },
-            onSelect = { setCadence(PRESET_BPMS[it]) },
-            label = { stringResource(PRESET_LABELS[it].first) },
-            sub = { PRESET_BPMS[it].toString() },
+private fun BeatModule(settings: Settings, canVibrate: Boolean, actions: ScreenActions) {
+    Module(R.string.section_beat) {
+        val channels = settings.channels(canVibrate)
+        SwitchRow(
+            label = stringResource(R.string.beat_sound),
+            hint = stringResource(
+                when {
+                    !channels.soundLocked -> R.string.beat_sound_hint
+                    canVibrate -> R.string.beat_sound_locked
+                    else -> R.string.beat_sound_no_vibrator
+                },
+            ),
+            checked = channels.sound,
+            enabled = !channels.soundLocked,
+            onChange = actions.setClick,
         )
-        val preset = PRESET_BPMS.indexOf(bpm)
-        Hint(
-            if (preset >= 0) {
-                stringResource(R.string.preset_hint, stringResource(PRESET_LABELS[preset].first), stringResource(PRESET_LABELS[preset].second))
-            } else {
-                stringResource(R.string.preset_none_hint)
-            },
-        )
-    }
-}
-
-@Composable
-private fun SoundModule(settings: Settings, actions: ScreenActions) {
-    Module(R.string.section_sound) {
         CellGrid(
             items = VOICE_IDS.indices.toList(),
             columns = 4,
@@ -496,6 +552,7 @@ private fun SoundModule(settings: Settings, actions: ScreenActions) {
             onSelect = { actions.chooseVoice(VOICE_IDS[it]) },
             label = { stringResource(VOICE_LABELS[it].first) },
             sub = { null },
+            enabled = channels.sound,
         )
         Hint(stringResource(VOICE_LABELS[VOICE_IDS.indexOf(settings.voice).coerceAtLeast(0)].second))
         ValueSlider(
@@ -505,8 +562,21 @@ private fun SoundModule(settings: Settings, actions: ScreenActions) {
             range = 0..100,
             shown = settings.volume.toString(),
             spoken = stringResource(R.string.percent, settings.volume),
-            enabled = settings.click,
+            enabled = channels.sound,
             onChange = actions.setVolume,
+        )
+        SwitchRow(
+            label = stringResource(R.string.beat_vibrate),
+            hint = stringResource(
+                when {
+                    !canVibrate -> R.string.beat_no_vibrator
+                    channels.vibrateLocked -> R.string.beat_vibrate_locked
+                    else -> R.string.beat_vibrate_hint
+                },
+            ),
+            checked = channels.vibrate,
+            enabled = canVibrate && !channels.vibrateLocked,
+            onChange = actions.setVibrate,
         )
     }
 }
@@ -527,40 +597,7 @@ private fun AccentModule(accentEvery: Int, chooseAccent: (Int) -> Unit) {
 }
 
 @Composable
-private fun OutputModule(settings: Settings, extras: ScreenExtras, actions: ScreenActions) {
-    Module(R.string.section_output) {
-        val vibrateOn = settings.vibrate && extras.canVibrate
-        SwitchRow(
-            label = stringResource(R.string.output_click),
-            hint = stringResource(R.string.output_click_hint),
-            checked = settings.click,
-            enabled = !(settings.click && !vibrateOn),
-            onChange = actions.setClick,
-        )
-        SwitchRow(
-            label = stringResource(R.string.output_vibrate),
-            hint = stringResource(if (extras.canVibrate) R.string.output_vibrate_hint else R.string.output_no_vibrator),
-            checked = vibrateOn,
-            enabled = extras.canVibrate && !(vibrateOn && !settings.click),
-            onChange = actions.setVibrate,
-        )
-        Hint(stringResource(R.string.output_hint))
-        if (extras.notificationsDenied) {
-            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.notifications_off),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = actions.openNotificationSettings) { Text(stringResource(R.string.notifications_settings)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SwitchRow(label: String, hint: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(label: String, hint: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -585,7 +622,7 @@ private fun ValueSlider(
     range: IntRange,
     shown: String,
     spoken: String,
-    enabled: Boolean,
+    enabled: Boolean = true,
     onChange: (Int) -> Unit,
 ) {
     val slider = @Composable { modifier: Modifier ->
@@ -602,7 +639,7 @@ private fun ValueSlider(
             },
         )
     }
-    val faded = Modifier.fillMaxWidth().padding(top = 12.dp).alpha(if (enabled) 1f else 0.38f)
+    val faded = Modifier.fillMaxWidth().padding(top = 12.dp).alpha(if (enabled) 1f else DISABLED_ALPHA)
     // Large text stacks the label and value over a full-width slider rather than squeezing a word.
     if (LocalDensity.current.fontScale >= 1.6f) {
         Column(faded) {
@@ -621,58 +658,20 @@ private fun ValueSlider(
     }
 }
 
-@Composable
-private fun RampModule(state: RunState, settings: Settings, actions: ScreenActions) {
-    Module(R.string.section_ramp) {
-        Text(stringResource(R.string.ramp_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SwitchRow(
-            label = stringResource(R.string.ramp_switch),
-            hint = stringResource(R.string.ramp_switch_hint),
-            checked = settings.rampOn,
-            enabled = true,
-            onChange = actions.setRampOn,
-        )
-        ValueSlider(
-            label = R.string.ramp_target,
-            sliderLabel = stringResource(R.string.ramp_target_slider),
-            value = settings.rampTo,
-            range = MIN_BPM..MAX_BPM,
-            shown = settings.rampTo.toString(),
-            spoken = pluralStringResource(R.plurals.cadence_description, settings.rampTo, settings.rampTo),
-            enabled = settings.rampOn,
-            onChange = actions.setRampTo,
-        )
-        ValueSlider(
-            label = R.string.ramp_over,
-            sliderLabel = stringResource(R.string.ramp_over_slider),
-            value = settings.rampMinutes,
-            range = MIN_RAMP_MINUTES..MAX_RAMP_MINUTES,
-            shown = stringResource(R.string.ramp_minutes, settings.rampMinutes),
-            spoken = pluralStringResource(R.plurals.minutes_description, settings.rampMinutes, settings.rampMinutes),
-            enabled = settings.rampOn,
-            onChange = actions.setRampMinutes,
-        )
-        if (settings.rampOn) {
-            SplitRows(state, settings)
-            rampStatus(state, settings)?.let { Hint(it) }
-        }
-    }
-}
-
 /**
  * The signature: the ramp printed as a pace band's split rows, one shared
  * baseline and scale, the row the run has reached lit as "you are here".
  */
 @Composable
-private fun SplitRows(state: RunState, settings: Settings) {
+private fun SplitRows(settings: Settings, ramp: RampView) {
     val band = LocalBandColors.current
-    val s = splits(state, settings)
     Column(
         Modifier.fillMaxWidth().padding(top = 12.dp).clip(MaterialTheme.shapes.extraSmall).border(1.dp, band.rule, MaterialTheme.shapes.extraSmall),
     ) {
-        s.minutes.forEachIndexed { index, minute ->
+        for (index in 0 until SPLITS) {
+            val minute = splitMinute(index, settings.rampMinutes)
             if (index > 0) HorizontalDivider(thickness = 1.dp, color = band.rule)
-            val lit = index == s.reached
+            val lit = index == ramp.reached
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -683,7 +682,7 @@ private fun SplitRows(state: RunState, settings: Settings) {
                 val ink = if (lit) band.onMarker else MaterialTheme.colorScheme.onSurface
                 Text(stringResource(R.string.ramp_split_minute, minute.roundToInt()), style = FigureBody, color = ink, modifier = Modifier.weight(1f))
                 Text(
-                    s.cadences[index].toString(),
+                    rampBpmAt(ramp.from, settings.rampTo, settings.rampMinutes, minute * 60).toString(),
                     style = FigureBody.copy(fontWeight = FontWeight.SemiBold),
                     color = ink,
                 )

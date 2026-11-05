@@ -46,7 +46,7 @@ setting, a number does not. The presets in the app are:
 | 165 | Recovery | Easy legs, low impact |
 | 170 | Easy | Conversational pace |
 | 175 | Steady | Most weekly mileage |
-| 180 | Target | The usual coaching reference |
+| 180 | Reference | The usual coaching reference |
 | 185 | Tempo | Threshold and race effort |
 | 190 | Strides | Short, fast turnover |
 

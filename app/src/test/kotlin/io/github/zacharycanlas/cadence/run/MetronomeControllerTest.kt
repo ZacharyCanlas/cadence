@@ -47,14 +47,22 @@ class MetronomeControllerTest {
             }
         }
 
-        /** Runs buffers and drains after each one, recording when each step was counted. */
-        fun playDraining(buffers: Int, counted: MutableList<Long>) {
-            repeat(buffers) {
+        /**
+         * Runs `seconds` one 20 ms buffer at a time, draining after each, and
+         * returns when each beat flashed. A buffer is far shorter than a beat,
+         * so no drain retires two. With `tick`, the 500 ms tick fires in step.
+         */
+        fun listen(seconds: Double, tick: Boolean = true): List<Long> {
+            val flashed = mutableListOf<Long>()
+            repeat((seconds * 50).toInt()) { i ->
                 output.step(1)
-                val before = controller.state.value.steps
-                controller.drain()
-                repeat(controller.state.value.steps - before) { counted += output.now }
+                if (controller.drain() != null) flashed += output.now
+                if (tick && i % 25 == 24) {
+                    scope.advanceTimeBy(500)
+                    scope.runCurrent()
+                }
             }
+            return flashed
         }
     }
 
@@ -121,6 +129,35 @@ class MetronomeControllerTest {
     }
 
     @Test
+    fun `resuming a held ramp climbs again from the held cadence without saving`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 150, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(120.0)
+        rig.controller.nudge(-1)
+        val held = rig.controller.state.value.currentBpm
+        assertTrue(rig.controller.state.value.rampHeld)
+
+        rig.controller.resumeRamp()
+        assertFalse(rig.controller.state.value.rampHeld)
+        assertEquals("it climbs from where it was held", held, rig.controller.state.value.rampFrom)
+        rig.play(300.0)
+        assertTrue("and climbs", rig.controller.state.value.currentBpm > held)
+        assertEquals("storage keeps the chosen cadence", 150, rig.storage.values["bpm"])
+    }
+
+    @Test
+    fun `the published ramp start is where switching the ramp on would climb from`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 160, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(300.0)
+        assertEquals(170, rig.controller.state.value.currentBpm)
+        rig.controller.setRampOn(false)
+        assertEquals("switched off mid-run: from what is sounding", 170, rig.controller.state.value.rampFrom)
+        rig.controller.stop()
+        assertEquals("stopped: from the chosen cadence", 160, rig.controller.state.value.rampFrom)
+    }
+
+    @Test
     fun `switching the ramp on mid-run climbs from where the run is`() {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 165, rampOn = false, rampTo = 180, rampMinutes = 10))
         rig.controller.start()
@@ -133,18 +170,16 @@ class MetronomeControllerTest {
     }
 
     @Test
-    fun `stopping keeps the run's final clock and counts every beat heard by then`() {
+    fun `stopping keeps the run's final clock`() {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180))
         rig.controller.start()
         rig.play(10.0)
-        // 200 ms past the last tick, with no frame drawn to drain the feed.
+        // 200 ms past the last tick.
         rig.output.step(10)
-        val heard = (0 until 1000).count { k -> Math.round(0.08 * rate + k * rate / 3.0) <= rig.output.playbackHeadPosition() }
 
         rig.controller.stop()
 
         assertEquals(10.2, rig.controller.state.value.elapsedSeconds, 1e-9)
-        assertEquals(heard, rig.controller.state.value.steps)
     }
 
     @Test
@@ -178,7 +213,6 @@ class MetronomeControllerTest {
         rig.controller.start()
         rig.play(10.0)
         rig.controller.drain()
-        val stepsBefore = rig.controller.state.value.steps
         val clockBefore = rig.controller.state.value.elapsedSeconds
         val bpmBefore = rig.controller.state.value.currentBpm
         val armedBefore = rig.haptics.armed.size
@@ -187,19 +221,15 @@ class MetronomeControllerTest {
         assertTrue(rig.controller.state.value.silenced)
         // At most the beat already in the buffer when the call began.
         val armedAtCall = rig.haptics.armed.size + 1
-        rig.play(60.0)
+        val duringCall = rig.listen(60.0)
         assertTrue("no haptic is armed during the call", rig.haptics.armed.size <= armedAtCall)
-        rig.controller.drain()
-        val tail = rig.controller.state.value.steps - stepsBefore
-        assertTrue("at most the beats already written before the call are counted, not $tail", tail <= 1)
+        assertTrue("at most the beat already written before the call flashes, not ${duringCall.size}", duringCall.size <= 1)
         assertEquals("the run clock paused", clockBefore, rig.controller.state.value.elapsedSeconds, 0.05)
         assertEquals("and so did the ramp", bpmBefore, rig.controller.state.value.currentBpm)
 
         rig.controller.onModeChanged(AudioManager.MODE_NORMAL)
         assertFalse(rig.controller.state.value.silenced)
-        rig.play(10.0)
-        rig.controller.drain()
-        assertTrue("counting again", rig.controller.state.value.steps - stepsBefore - tail >= 28)
+        assertTrue("flashing again", rig.listen(10.0).size >= 28)
         assertEquals("the clock picks up where it was", clockBefore + 10.0, rig.controller.state.value.elapsedSeconds, 0.05)
         assertTrue("and the haptics come back with the beat", rig.haptics.armed.size - armedBefore >= 28)
     }
@@ -208,10 +238,8 @@ class MetronomeControllerTest {
     fun `a run started during a call starts silent`() {
         val rig = Rig(mode = AudioManager.MODE_IN_CALL)
         rig.controller.start()
-        rig.play(5.0)
-        rig.controller.drain()
+        assertTrue("nothing flashes", rig.listen(5.0).isEmpty())
         assertTrue(rig.controller.state.value.silenced)
-        assertEquals(0, rig.controller.state.value.steps)
         assertEquals(0.0, rig.controller.state.value.elapsedSeconds, 0.0)
     }
 
@@ -221,9 +249,7 @@ class MetronomeControllerTest {
         rig.controller.start()
         rig.controller.onModeChanged(99)
         assertTrue(rig.controller.state.value.silenced)
-        rig.play(2.0)
-        rig.controller.drain()
-        assertTrue(rig.controller.state.value.steps <= 1)
+        assertTrue(rig.listen(2.0).size <= 1)
     }
 
     @Test
@@ -269,21 +295,20 @@ class MetronomeControllerTest {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180, vibrate = true))
         rig.output.stamps = stamps
         rig.controller.start()
-        val counted = mutableListOf<Long>()
-        rig.playDraining(100, counted)
+        val flashed = rig.listen(2.0, tick = false).toMutableList()
         if (deadObjectAfter != null) rig.output.writeResults.addLast(AudioTrack.ERROR_DEAD_OBJECT)
         val base = rig.output.trackBase()
-        rig.playDraining(300, counted)
+        flashed += rig.listen(6.0, tick = false)
         val label = "$stamps, recreated=${deadObjectAfter != null}"
         if (deadObjectAfter != null) assertTrue("$label: recreated", rig.output.trackBase() != base)
 
-        val beatFrames = (0 until counted.size).map { k -> Math.round(0.08 * rate + k * rate / 3.0) }
+        val beatFrames = (0 until flashed.size).map { k -> Math.round(0.08 * rate + k * rate / 3.0) }
         val onCurrentTrack = beatFrames.indices.filter { beatFrames[it] >= rig.output.trackBase() }
         assertTrue("$label: beats on the current track", onCurrentTrack.size > 10)
         for (k in onCurrentTrack) {
             val heard = rig.output.soundsAt(beatFrames[k])
-            val lag = counted[k] - heard
-            assertTrue("$label: step $k counted ${lag / 1e6} ms after it sounded", lag in 0..bufferNanos)
+            val lag = flashed[k] - heard
+            assertTrue("$label: beat $k flashed ${lag / 1e6} ms after it sounded", lag in 0..bufferNanos)
         }
         // Every beat is audible and vibrate is on, so the k-th haptic armed is beat k's.
         for (k in onCurrentTrack) {
@@ -295,16 +320,16 @@ class MetronomeControllerTest {
     }
 
     @Test
-    fun `steps and haptics follow the playback clock with a timestamp from the start`() = clockCase(FakeOutput.Stamps.ALWAYS)
+    fun `flashes and haptics follow the playback clock with a timestamp from the start`() = clockCase(FakeOutput.Stamps.ALWAYS)
 
     @Test
-    fun `steps and haptics follow the playback head until a timestamp arrives`() = clockCase(FakeOutput.Stamps.AFTER_FIRST_SECOND)
+    fun `flashes and haptics follow the playback head until a timestamp arrives`() = clockCase(FakeOutput.Stamps.AFTER_FIRST_SECOND)
 
     @Test
-    fun `steps and haptics follow the playback head on a route with no timestamps`() = clockCase(FakeOutput.Stamps.NEVER)
+    fun `flashes and haptics follow the playback head on a route with no timestamps`() = clockCase(FakeOutput.Stamps.NEVER)
 
     @Test
-    fun `steps and haptics follow a recreated track whose timestamps restart at 0`() =
+    fun `flashes and haptics follow a recreated track whose timestamps restart at 0`() =
         clockCase(FakeOutput.Stamps.ALWAYS, deadObjectAfter = 100)
 
     @Test
@@ -327,9 +352,7 @@ class MetronomeControllerTest {
         assertEquals(2, rig.output.opens)
         assertTrue(rig.controller.state.value.running)
 
-        val counted = mutableListOf<Long>()
-        rig.playDraining(100, counted)
-        assertTrue("beats keep sounding", counted.size >= 5)
+        assertTrue("beats keep sounding", rig.listen(2.0, tick = false).size >= 5)
     }
 
     @Test
@@ -391,7 +414,7 @@ class MetronomeControllerTest {
     }
 
     @Test
-    fun `beats cross from the render thread without being lost or doubled`() {
+    fun `beats cross from the render thread in order, through to the last one written`() {
         val rig = Rig()
         rig.controller.start()
         // One buffer, before the first beat, so the clock holds a timestamp to extrapolate from.
@@ -404,11 +427,14 @@ class MetronomeControllerTest {
         }
         // A thousand seconds on: every beat is presented as soon as it is drained.
         val later = rig.output.now + 1_000_000_000_000L
+        val flashed = mutableListOf<Int>()
         renderThread.start()
-        while (renderThread.isAlive) rig.controller.drain(now = later)
+        while (renderThread.isAlive) rig.controller.drain(now = later)?.let { flashed += it.count }
         renderThread.join()
-        rig.controller.drain(now = later)
-        assertEquals((0 until total).count { it % 7 != 0 }, rig.controller.state.value.steps)
+        rig.controller.drain(now = later)?.let { flashed += it.count }
+        assertEquals("never doubled or out of order", flashed.sorted().distinct(), flashed)
+        assertTrue("never a silent beat", flashed.none { it % 7 == 0 })
+        assertEquals("the last audible beat is the last flashed", (0 until total).last { it % 7 != 0 }, flashed.last())
     }
 
     @Test

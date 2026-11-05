@@ -44,8 +44,8 @@ marked as allowed without unlocking (`setAuthenticationRequired(false)`; the OS
 has the final say). Tapping it opens the app. Android 14 lets you dismiss it
 while unlocked, and the service then posts nothing more that run, so a ramp step
 or a call cannot bring it back; the next run posts it again. With notifications
-denied, the run starts anyway and the Output section says Stop is only in the
-app.
+denied, the run starts anyway, and a line above the setup says Slower, Faster
+and Stop are only in the app.
 
 ## The frame clock
 
@@ -69,8 +69,8 @@ You hear each frame later than it is written, by the track's buffer plus the
 route's latency, and Bluetooth adds a lot. `PlaybackClock` maps now to the frame
 being heard from the track's `AudioTimestamp`, re-queried about every 10 s. Until
 a timestamp arrives (at Start, after a route change, or on a route that never
-reports one) it falls back to the playback head. The beat flash, the step count
-and every vibration read this clock.
+reports one) it falls back to the playback head. The beat flash and every
+vibration read this clock.
 
 Output failures never leave a silent "running". A track that fails to open at
 Start leaves the run stopped, with a snackbar. A write returning
@@ -91,8 +91,8 @@ needs no permission. We passed on `TelephonyCallback`, which needs
 
 While silenced, the render thread keeps writing silence, so the grid keeps its
 phase. Beats in that window advance the accent count, so the first beat after
-the call carries the right accent, but they play nothing, buzz nothing and count
-as no steps. The run clock counts only frames written while not silenced, and
+the call carries the right accent, but they play nothing, buzz nothing and flash
+nothing. The run clock counts only frames written while not silenced, and
 the ramp reads that clock, so both pause for the call and pick up where they
 left off. The notification shows "Paused for a call" and drops its chronometer,
 then posts it again from the app's clock.
@@ -129,14 +129,14 @@ debugging on, and run `adb logcat -s Cadence`.
    through the earbuds.
 3. **An hour, locked.** Run 60 minutes at 180 with the screen locked and Spotify
    in front. Pass: the run clock reads 60:00 when the phone's clock says an hour
-   has passed (±1 s), and the step count reads 10,800 (±1). A larger gap means
-   underruns, which logcat's count confirms.
+   has passed (±1 s). A larger gap means underruns, which logcat's count
+   confirms.
 4. **Timing by ear.** Across the same run, change the tempo, sound and accent in
    the app, and the tempo with the notification's Slower and Faster. Pass: no
    drift or stutter, and each change lands on the next beat with no stumble.
 5. **Controls.** Use every control: cadence slider and ±1, tap your stride, the
-   six presets, the eight sounds and volume, the accents, Click and Vibrate, the
-   ramp, the clock and steps. Pass: each works and persists, with the web
+   six presets, the eight sounds and volume, the accents, Sound and Vibrate, the
+   ramp and the clock. Pass: each works and persists, with the web
    version's ranges, defaults, presets, accents and hints. A/B the eight sounds
    against the web version while its site is still up. Pass: they sound alike.
 6. **Earbud buttons.** Mid-run, press play/pause on the earbuds. Pass: Spotify
@@ -148,17 +148,16 @@ debugging on, and run `adb logcat -s Cadence`.
    beat carries on, Stop in the app ends the run, and the next run shows it.
 8. **Disconnect.** Mid-run on earbuds, turn them off. Pass: the beat stops and
    the app shows "Stopped when your headphones disconnected".
-9. **Vibration.** Turn Click off and Vibrate on, then run with the screen off
+9. **Vibration.** Turn Vibrate on and Sound off, then run with the screen off
    for 10 minutes. Pass: every beat buzzes, accents longer. Repeat with Battery
    Saver on.
 10. **Calls.** Mid-run with the ramp climbing, take an incoming carrier call,
     then a WhatsApp call. Pass: silence from ringing to hang-up, then the beat
-    resumes on the grid. The step count leaves out the silent stretch, the run
-    clock reads the same after the call as before it, and the ramp resumes from
-    the cadence it had reached. The notification shows "Paused for a call"
+    resumes on the grid. The run clock reads the same after the call as before
+    it, and the ramp resumes from the cadence it had reached. The notification shows "Paused for a call"
     during the call, and its chronometer matches the app's clock afterwards.
 11. **Settings.** Change several, force stop the app, reopen. Pass: all kept.
-12. **Preview.** Stopped, Click on, pick a sound, then an accent. Pass: each
+12. **Preview.** Stopped, Sound on, pick a sound, then an accent. Pass: each
     pick plays one beat.
 13. **Screen.** Pass: the screen stays on while the app is in front and running,
     and sleeps on its usual timeout otherwise.
@@ -170,7 +169,7 @@ debugging on, and run `adb logcat -s Cadence`.
     the notification continue, and Stop in the notification ends the run.
 16. **Route changes.** Mid-run on the speaker, connect Bluetooth earbuds. Then
     move the output between two connected devices in the system output switcher.
-    Pass, each time: the beat, vibration and step count carry on along the grid,
+    Pass, each time: the beat, vibration and flash carry on along the grid,
     or the run stops with the audio output failure message, and it never shows
     "running" with no sound. A move from earbuds to the speaker can send the
     disconnect broadcast, so the headphones message passes there too.

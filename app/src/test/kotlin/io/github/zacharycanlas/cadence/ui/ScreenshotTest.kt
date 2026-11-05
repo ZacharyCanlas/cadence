@@ -22,11 +22,11 @@ class ScreenshotTest {
 
     private val settings = DEFAULT_SETTINGS.copy(bpm = 150, accentEvery = 4, rampOn = true, rampTo = 180, rampMinutes = 10, vibrate = true)
     private val state = RunState(
-        running = true, currentBpm = 162, elapsedSeconds = 4 * 60 + 12.0, steps = 652,
+        running = true, currentBpm = 162, elapsedSeconds = 4 * 60 + 12.0,
         silenced = false, rampHeld = false, rampFrom = 150, rampStartSeconds = 0.0, stopReason = null,
     )
 
-    private val actions = ScreenActions({}, {}, {}, { null }, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    private val actions = ScreenActions({}, {}, {}, { null }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
     private fun shoot(name: String, night: Boolean, fontScale: Float) {
         val device = DeviceConfig.PIXEL_7.copy(

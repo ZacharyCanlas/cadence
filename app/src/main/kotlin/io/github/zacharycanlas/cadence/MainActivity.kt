@@ -160,6 +160,7 @@ private fun RunScreen(controller: MetronomeController) {
             setRampOn = controller::setRampOn,
             setRampTo = controller::setRampTo,
             setRampMinutes = controller::setRampMinutes,
+            resumeRamp = controller::resumeRamp,
             openNotificationSettings = {
                 context.startActivity(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),

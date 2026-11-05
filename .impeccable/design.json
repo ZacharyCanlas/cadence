@@ -327,7 +327,7 @@
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Session line on the band: clock and steps."
+        "purpose": "Run clock on the band."
       },
       "figure-body": {
         "displayName": "Figure Body",
@@ -444,7 +444,7 @@
       "kind": "card",
       "refersTo": "band",
       "description": "The cobalt band: beat ring, cadence figure, session line, status.",
-      "html": "<div class=\"ds-band\"><div class=\"ds-band-ring\"><svg viewBox=\"0 0 200 200\" width=\"200\" height=\"200\"><circle cx=\"100\" cy=\"100\" r=\"86\" fill=\"none\" stroke=\"rgba(201,214,250,.45)\" stroke-width=\"3\"/><circle cx=\"100\" cy=\"14\" r=\"8.75\" fill=\"#C8F031\"/><circle cx=\"186\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"100\" cy=\"186\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"14\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/></svg><div class=\"ds-band-fig\"><b>162</b><span>steps per minute</span></div></div><div class=\"ds-band-session\">4:12 · 652 steps</div><div class=\"ds-band-status\">Climbing to 180 over 10 min</div></div>",
+      "html": "<div class=\"ds-band\"><div class=\"ds-band-ring\"><svg viewBox=\"0 0 200 200\" width=\"200\" height=\"200\"><circle cx=\"100\" cy=\"100\" r=\"86\" fill=\"none\" stroke=\"rgba(201,214,250,.45)\" stroke-width=\"3\"/><circle cx=\"100\" cy=\"14\" r=\"8.75\" fill=\"#C8F031\"/><circle cx=\"186\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"100\" cy=\"186\" r=\"7\" fill=\"#C9D6FA\"/><circle cx=\"14\" cy=\"100\" r=\"7\" fill=\"#C9D6FA\"/></svg><div class=\"ds-band-fig\"><b>162</b><span>steps per minute</span></div></div><div class=\"ds-band-session\">4:12</div><div class=\"ds-band-status\">Climbing to 180 over 10 min</div></div>",
       "css": ".ds-band{width:320px;background:#1F4FD8;color:#fff;padding:20px 20px 28px;display:flex;flex-direction:column;align-items:center}.ds-band-ring{position:relative;width:200px;height:200px}.ds-band-fig{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.ds-band-fig b{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:600;font-size:88px;line-height:84px}.ds-band-fig span{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;letter-spacing:1.4px;color:#C9D6FA}.ds-band-session{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-weight:500;font-size:26px;line-height:30px;margin-top:4px}.ds-band-status{font:400 14px/20px Roboto,sans-serif;color:#C9D6FA;margin-top:6px}"
     },
     {
@@ -478,7 +478,7 @@
       },
       {
         "name": "The Figures Rule",
-        "body": "Every number a runner reads (cadence, clock, steps, splits, preset values, slider values) is set in Barlow Condensed with `tnum`, so digits never jitter as they change. Words are never set in the figure face except the header tabs and the unit under the cadence.",
+        "body": "Every number a runner reads (cadence, clock, splits, preset values, slider values) is set in Barlow Condensed with `tnum`, so digits never jitter as they change. Words are never set in the figure face except the header tabs and the unit under the cadence.",
         "section": "typography"
       },
       {

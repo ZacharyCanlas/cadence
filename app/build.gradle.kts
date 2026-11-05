@@ -21,8 +21,8 @@ android {
         targetSdk = 36
         // Android refuses an APK whose versionCode is not above the installed copy's,
         // so every APK that leaves this machine bumps it, committed first.
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.1.1"
     }
 
     signingConfigs {
@@ -80,7 +80,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
 

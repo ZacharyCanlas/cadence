@@ -24,3 +24,13 @@ fun rampProgress(minutes: Int, elapsedSeconds: Double): Double {
 }
 
 fun rampDone(minutes: Int, elapsedSeconds: Double): Boolean = rampProgress(minutes, elapsedSeconds) >= 1
+
+enum class RampPhase { Held, Holding, Easing, Climbing }
+
+/** Where a running ramp stands. The band and the notification both word their status from this. */
+fun rampPhase(held: Boolean, from: Int, to: Int, minutes: Int, elapsedSeconds: Double): RampPhase = when {
+    held -> RampPhase.Held
+    to == from || rampDone(minutes, elapsedSeconds) -> RampPhase.Holding
+    to < from -> RampPhase.Easing
+    else -> RampPhase.Climbing
+}
