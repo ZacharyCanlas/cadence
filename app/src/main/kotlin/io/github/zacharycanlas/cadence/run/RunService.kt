@@ -131,7 +131,9 @@ class RunService : Service() {
                     state.silenced -> context.getString(R.string.status_paused_for_call)
                     !settings.rampOn -> context.getString(R.string.status_running)
                     state.rampHeld -> context.getString(R.string.status_ramp_held, state.currentBpm)
-                    rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds) -> context.getString(R.string.status_ramp_holding, settings.rampTo)
+                    settings.rampTo == state.rampFrom || rampDone(settings.rampMinutes, state.elapsedSeconds - state.rampStartSeconds) ->
+                        context.getString(R.string.status_ramp_holding, settings.rampTo)
+                    settings.rampTo < state.rampFrom -> context.getString(R.string.status_ramp_easing, settings.rampTo)
                     else -> context.getString(R.string.status_ramp_climbing, settings.rampTo)
                 }
                 val base = if (state.silenced) null else (System.currentTimeMillis() - (state.elapsedSeconds * 1000).toLong()) / 1000

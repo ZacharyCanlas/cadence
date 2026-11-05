@@ -225,9 +225,11 @@ Tokens live in `ui/Theme.kt`: Material 3 colour roles, the band's own colours
 in `BandColors`, shapes, and a type scale that sets figures in Barlow
 Condensed. The screen is a pace band. A cobalt band at the top carries the
 cadence in tabular figures, read at arm's length in daylight while moving.
-Below it, ruled modules under ink tabs hold the setup, read standing still.
-Presets, sounds and accents are a printed cell grid, and the ramp is a set of
-split rows. Start and Stop sit docked at the bottom.
+Below it, three ruled modules under ink tabs hold the setup, read standing
+still: Cadence (slider, ±1, presets, the ramp, tap), Beat (sound, voice,
+volume, vibration) and Accent. Presets, sounds and accents are a printed cell
+grid, and the ramp is a set of split rows that appear only with it on. Start
+and Stop sit docked at the bottom.
 
 Conventions worth preserving:
 

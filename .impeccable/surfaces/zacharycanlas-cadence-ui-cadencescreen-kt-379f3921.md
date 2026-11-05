@@ -19,7 +19,7 @@ OWN-WORLD: White lamination ground, ink #0E1116, cobalt #1F4FD8 band owning the 
 
 STORY: The runner sees their cadence first, sets it and the rest in one scroll, taps Start, and mid-run reads cadence, clock and the ramp's status.
 
-FIRST VIEWPORT: An edge-to-edge cobalt band, under the status bar, holds the beat ring and 172 in huge white tabular figures, "steps per minute", then the run clock. Below on white: −, slider, +; Tap your stride; presets. Start/Stop docked in a bottom bar above the navigation inset. Signature interaction: the ramp's split rows, the current row lit lime and advancing as the run climbs; the beat lights the band's ring in lime, held 120 ms with no movement when animations are off.
+FIRST VIEWPORT: An edge-to-edge cobalt band, under the status bar, holds the beat ring and 172 in huge white tabular figures, "steps per minute", then the run clock. Below on white, the Cadence module: −, slider, +; presets; the ramp switch, then Target, Over and the split rows when it is on; Tap your stride. Then Beat (sound, voice, volume, vibrate) and Accent. Start/Stop docked in a bottom bar above the navigation inset. Signature interaction: the ramp's split rows, the current row lit lime and advancing as the run climbs; the beat lights the band's ring in lime, held 120 ms with no movement when animations are off.
 
 FORM: Pace Band, candidate 3 of 7 in resonance order, seed key c98130fb.
 

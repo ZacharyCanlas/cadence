@@ -238,19 +238,19 @@ Small, near-square corners, like a die-cut laminate. Ruled containers (cell grid
 
 ### Cell Grid
 - **Style:** a 4dp-cornered box with a 1dp hairline border, ruled into rows and columns by 1dp hairlines; cells are 56dp minimum, 8dp padding, a Figure Body value over a Label.
-- **State:** the selected cell is inked solid (Ink fill, Laminate text; inverted in dark). Radio semantics, one per group.
+- **State:** the selected cell is inked solid (Ink fill, Laminate text; inverted in dark). Radio semantics, one per group. A disabled grid (sounds with Sound off) fades to 38% alpha.
 
 ### Module
 - **Header tab:** uppercase Tab text in Laminate on an Ink tab, 8dp by 3dp padding, top corners 4dp, seated on a 2dp Ink rule spanning the gutter. Announced as a heading.
 
 ### Switch rows and sliders
-- **Switch row:** Title over Body hint, Material Switch at the end, the whole row toggleable, 64dp min height.
+- **Switch row:** Title over Body hint, Material Switch at the end, the whole row toggleable, 64dp min height. A locked switch says in its own hint what would unlock it.
 - **Value slider:** Title label, Material slider with tick marks removed, Figure Body value at the end; disabled rows fade to 38% alpha.
 
 ### Pace Band (signature)
-- **Band:** cobalt block with the beat ring (3dp ring at Band Muted 45%, accent dots 7dp, downbeat dot 1.25x in Laminate), the Display cadence, "steps per minute", the Headline run clock and a Body status line.
+- **Band:** cobalt block with the beat ring (3dp ring at Band Muted 45%, accent dots 7dp, downbeat dot 1.25x in Laminate), the Display cadence, "steps per minute", the Headline run clock ("Last run 4:12" once stopped) and a Body status line: the ramp plan before a run, the climb's progress during one.
 - **Beat flash:** the beat lights its dot, or the whole ring at double stroke when accents are off, in Lime for 120ms; no movement, so it reads the same with animations off.
-- **Split rows:** the ramp printed as six rows (minute, cadence) inside a 4dp hairline box; the reached row fills Lime with Ink text.
+- **Split rows:** the ramp printed as six rows (minute, cadence) inside a 4dp hairline box, shown only with the ramp on; the reached row fills Lime with Ink text.
 
 ### Run notification
 - System-styled ongoing workout notification: monochrome beat-ring small icon, chronometer, and −1 / +1 / Stop actions with the same vector glyphs as the screen.

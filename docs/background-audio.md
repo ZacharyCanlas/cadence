@@ -44,8 +44,8 @@ marked as allowed without unlocking (`setAuthenticationRequired(false)`; the OS
 has the final say). Tapping it opens the app. Android 14 lets you dismiss it
 while unlocked, and the service then posts nothing more that run, so a ramp step
 or a call cannot bring it back; the next run posts it again. With notifications
-denied, the run starts anyway and the Output section says Stop is only in the
-app.
+denied, the run starts anyway, and a line above the setup says Slower, Faster
+and Stop are only in the app.
 
 ## The frame clock
 
@@ -135,7 +135,7 @@ debugging on, and run `adb logcat -s Cadence`.
    the app, and the tempo with the notification's Slower and Faster. Pass: no
    drift or stutter, and each change lands on the next beat with no stumble.
 5. **Controls.** Use every control: cadence slider and ±1, tap your stride, the
-   six presets, the eight sounds and volume, the accents, Click and Vibrate, the
+   six presets, the eight sounds and volume, the accents, Sound and Vibrate, the
    ramp and the clock. Pass: each works and persists, with the web
    version's ranges, defaults, presets, accents and hints. A/B the eight sounds
    against the web version while its site is still up. Pass: they sound alike.
@@ -148,7 +148,7 @@ debugging on, and run `adb logcat -s Cadence`.
    beat carries on, Stop in the app ends the run, and the next run shows it.
 8. **Disconnect.** Mid-run on earbuds, turn them off. Pass: the beat stops and
    the app shows "Stopped when your headphones disconnected".
-9. **Vibration.** Turn Click off and Vibrate on, then run with the screen off
+9. **Vibration.** Turn Vibrate on and Sound off, then run with the screen off
    for 10 minutes. Pass: every beat buzzes, accents longer. Repeat with Battery
    Saver on.
 10. **Calls.** Mid-run with the ramp climbing, take an incoming carrier call,
@@ -157,7 +157,7 @@ debugging on, and run `adb logcat -s Cadence`.
     it, and the ramp resumes from the cadence it had reached. The notification shows "Paused for a call"
     during the call, and its chronometer matches the app's clock afterwards.
 11. **Settings.** Change several, force stop the app, reopen. Pass: all kept.
-12. **Preview.** Stopped, Click on, pick a sound, then an accent. Pass: each
+12. **Preview.** Stopped, Sound on, pick a sound, then an accent. Pass: each
     pick plays one beat.
 13. **Screen.** Pass: the screen stays on while the app is in front and running,
     and sleeps on its usual timeout otherwise.
