@@ -41,7 +41,10 @@ data class RunState(
     val rampStartSeconds: Double,
     /** Why the last run ended on its own. Cleared by Start, a Stop and [MetronomeController.consumeStopReason]. */
     val stopReason: StopReason?,
-)
+) {
+    /** The run clock measured from where the ramp started climbing. */
+    val rampElapsedSeconds: Double get() = elapsedSeconds - rampStartSeconds
+}
 
 /**
  * The process-wide metronome. Public functions run on the main thread, and so

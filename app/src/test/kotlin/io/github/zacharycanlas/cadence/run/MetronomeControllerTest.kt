@@ -48,28 +48,21 @@ class MetronomeControllerTest {
         }
 
         /**
-         * Runs buffers and drains after each one, recording when each beat was
-         * flashed. A buffer is far shorter than a beat, so no drain retires two.
+         * Runs `seconds` one 20 ms buffer at a time, draining after each, and
+         * returns when each beat flashed. A buffer is far shorter than a beat,
+         * so no drain retires two. With `tick`, the 500 ms tick fires in step.
          */
-        fun playDraining(buffers: Int, flashed: MutableList<Long>) {
-            repeat(buffers) {
-                output.step(1)
-                if (controller.drain() != null) flashed += output.now
-            }
-        }
-
-        /** Runs `seconds` buffer by buffer, draining after each and ticking in step, and returns the beats flashed. */
-        fun listen(seconds: Double): List<CommittedBeat> {
-            val heard = mutableListOf<CommittedBeat>()
+        fun listen(seconds: Double, tick: Boolean = true): List<Long> {
+            val flashed = mutableListOf<Long>()
             repeat((seconds * 50).toInt()) { i ->
                 output.step(1)
-                controller.drain()?.let(heard::add)
-                if (i % 25 == 24) {
+                if (controller.drain() != null) flashed += output.now
+                if (tick && i % 25 == 24) {
                     scope.advanceTimeBy(500)
                     scope.runCurrent()
                 }
             }
-            return heard
+            return flashed
         }
     }
 
@@ -273,11 +266,10 @@ class MetronomeControllerTest {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 180, vibrate = true))
         rig.output.stamps = stamps
         rig.controller.start()
-        val flashed = mutableListOf<Long>()
-        rig.playDraining(100, flashed)
+        val flashed = rig.listen(2.0, tick = false).toMutableList()
         if (deadObjectAfter != null) rig.output.writeResults.addLast(AudioTrack.ERROR_DEAD_OBJECT)
         val base = rig.output.trackBase()
-        rig.playDraining(300, flashed)
+        flashed += rig.listen(6.0, tick = false)
         val label = "$stamps, recreated=${deadObjectAfter != null}"
         if (deadObjectAfter != null) assertTrue("$label: recreated", rig.output.trackBase() != base)
 
@@ -331,9 +323,7 @@ class MetronomeControllerTest {
         assertEquals(2, rig.output.opens)
         assertTrue(rig.controller.state.value.running)
 
-        val flashed = mutableListOf<Long>()
-        rig.playDraining(100, flashed)
-        assertTrue("beats keep sounding", flashed.size >= 5)
+        assertTrue("beats keep sounding", rig.listen(2.0, tick = false).size >= 5)
     }
 
     @Test

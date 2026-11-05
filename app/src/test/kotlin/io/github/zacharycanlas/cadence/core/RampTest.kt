@@ -47,4 +47,13 @@ class RampTest {
         assertEquals(60, clampMinutes(500))
         assertEquals("a zero-minute ramp runs over one minute", 175, rampBpmAt(170, 180, 0, 30.0))
     }
+
+    @Test
+    fun `the phase reads held first, then holding once done or flat, then the direction`() {
+        assertEquals(RampPhase.Held, rampPhase(held = true, from = 160, to = 180, minutes = 10, elapsedSeconds = 60.0))
+        assertEquals(RampPhase.Climbing, rampPhase(held = false, from = 160, to = 180, minutes = 10, elapsedSeconds = 60.0))
+        assertEquals(RampPhase.Easing, rampPhase(held = false, from = 180, to = 160, minutes = 10, elapsedSeconds = 60.0))
+        assertEquals(RampPhase.Holding, rampPhase(held = false, from = 160, to = 180, minutes = 10, elapsedSeconds = 600.0))
+        assertEquals("a ramp to where it starts has nothing to climb", RampPhase.Holding, rampPhase(held = false, from = 180, to = 180, minutes = 10, elapsedSeconds = 0.0))
+    }
 }
