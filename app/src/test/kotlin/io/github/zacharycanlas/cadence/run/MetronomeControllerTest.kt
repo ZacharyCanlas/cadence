@@ -129,6 +129,35 @@ class MetronomeControllerTest {
     }
 
     @Test
+    fun `resuming a held ramp climbs again from the held cadence without saving`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 150, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(120.0)
+        rig.controller.nudge(-1)
+        val held = rig.controller.state.value.currentBpm
+        assertTrue(rig.controller.state.value.rampHeld)
+
+        rig.controller.resumeRamp()
+        assertFalse(rig.controller.state.value.rampHeld)
+        assertEquals("it climbs from where it was held", held, rig.controller.state.value.rampFrom)
+        rig.play(300.0)
+        assertTrue("and climbs", rig.controller.state.value.currentBpm > held)
+        assertEquals("storage keeps the chosen cadence", 150, rig.storage.values["bpm"])
+    }
+
+    @Test
+    fun `the published ramp start is where switching the ramp on would climb from`() {
+        val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 160, rampOn = true, rampTo = 180, rampMinutes = 10))
+        rig.controller.start()
+        rig.play(300.0)
+        assertEquals(170, rig.controller.state.value.currentBpm)
+        rig.controller.setRampOn(false)
+        assertEquals("switched off mid-run: from what is sounding", 170, rig.controller.state.value.rampFrom)
+        rig.controller.stop()
+        assertEquals("stopped: from the chosen cadence", 160, rig.controller.state.value.rampFrom)
+    }
+
+    @Test
     fun `switching the ramp on mid-run climbs from where the run is`() {
         val rig = Rig(DEFAULT_SETTINGS.copy(bpm = 165, rampOn = false, rampTo = 180, rampMinutes = 10))
         rig.controller.start()

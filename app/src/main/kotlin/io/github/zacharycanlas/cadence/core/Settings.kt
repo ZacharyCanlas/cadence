@@ -45,8 +45,22 @@ fun normalize(settings: Settings): Settings {
         rampTo = clampBpm(settings.rampTo),
         rampMinutes = clampMinutes(settings.rampMinutes),
     )
-    // Silence on both channels would look like a broken app, so keep the click.
-    return if (!normalized.click && !normalized.vibrate) normalized.copy(click = true) else normalized
+    return normalized.copy(click = normalized.channels(canVibrate = true).sound)
+}
+
+/**
+ * What the beat plays on. Silence on both would look like a broken app, so
+ * sound stays on unless vibration really runs, on this phone, in its place.
+ */
+data class Channels(val sound: Boolean, val vibrate: Boolean) {
+    /** Each is the only channel on, so switching it off is refused. */
+    val soundLocked: Boolean get() = sound && !vibrate
+    val vibrateLocked: Boolean get() = vibrate && !sound
+}
+
+fun Settings.channels(canVibrate: Boolean): Channels {
+    val vibrates = vibrate && canVibrate
+    return Channels(sound = click || !vibrates, vibrate = vibrates)
 }
 
 /** Each key reads independently: one that throws, or holds the wrong type, falls back to its default alone. */

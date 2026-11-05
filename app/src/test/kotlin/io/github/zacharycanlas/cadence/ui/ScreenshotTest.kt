@@ -26,7 +26,7 @@ class ScreenshotTest {
         silenced = false, rampHeld = false, rampFrom = 150, rampStartSeconds = 0.0, stopReason = null,
     )
 
-    private val actions = ScreenActions({}, {}, {}, { null }, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    private val actions = ScreenActions({}, {}, {}, { null }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
     private fun shoot(name: String, night: Boolean, fontScale: Float) {
         val device = DeviceConfig.PIXEL_7.copy(

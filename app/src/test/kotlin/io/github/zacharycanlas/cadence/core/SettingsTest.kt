@@ -91,4 +91,15 @@ class SettingsTest {
         assertEquals(DEFAULT_SETTINGS, loadSettings(hostile))
         assertFalse(saveSettings(hostile, DEFAULT_SETTINGS))
     }
+
+    @Test
+    fun `the beat always plays on at least one channel the phone has`() {
+        val vibrateOnly = DEFAULT_SETTINGS.copy(click = false, vibrate = true)
+        assertEquals(Channels(sound = false, vibrate = true), vibrateOnly.channels(canVibrate = true))
+        assertEquals("no motor, so sound comes back", Channels(sound = true, vibrate = false), vibrateOnly.channels(canVibrate = false))
+        assertTrue(vibrateOnly.channels(canVibrate = true).vibrateLocked)
+        assertTrue(DEFAULT_SETTINGS.copy(click = true, vibrate = false).channels(canVibrate = true).soundLocked)
+        val both = DEFAULT_SETTINGS.copy(click = true, vibrate = true).channels(canVibrate = true)
+        assertFalse(both.soundLocked || both.vibrateLocked)
+    }
 }

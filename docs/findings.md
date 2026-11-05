@@ -32,10 +32,12 @@ for the rest of the run. Outside a ramp, `setCadence` calls `choose` and saves.
 
 - Stop runs `endRun`, which returns the display to `chosen`, and the next run
   climbs from it again.
-- Changing the ramp's target or length keeps the hold. Turning the ramp off and
-  on calls `rebaseRamp`, which clears the hold and climbs from where you are.
-- The ramp panel and the notification read "Holding at 172. You took over from
-  the ramp."
+- Changing the ramp's target or length keeps the hold. "Resume the ramp" calls
+  `resumeRamp`, and turning the ramp off and on calls `rebaseRamp`; both clear
+  the hold and climb from where you are, without touching storage.
+- The band reads "Holding at 172. Resume the ramp to climb from here." The
+  notification, which has no Resume action, reads "Holding at 172. You took
+  over from the ramp."
 
 The hold leaves `chosen` alone on purpose. A −1 twenty minutes into a 150 to 180
 ramp means "slower now", and saving 169 would bring back the defect where a ramp

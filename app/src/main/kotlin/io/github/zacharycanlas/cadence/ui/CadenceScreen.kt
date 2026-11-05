@@ -75,6 +75,7 @@ import io.github.zacharycanlas.cadence.core.MIN_RAMP_MINUTES
 import io.github.zacharycanlas.cadence.core.PRESET_BPMS
 import io.github.zacharycanlas.cadence.core.Settings
 import io.github.zacharycanlas.cadence.core.VOICE_IDS
+import io.github.zacharycanlas.cadence.core.channels
 import io.github.zacharycanlas.cadence.core.formatClock
 import io.github.zacharycanlas.cadence.core.rampBpmAt
 import io.github.zacharycanlas.cadence.core.RampPhase
@@ -99,6 +100,7 @@ class ScreenActions(
     val setRampOn: (Boolean) -> Unit,
     val setRampTo: (Int) -> Unit,
     val setRampMinutes: (Int) -> Unit,
+    val resumeRamp: () -> Unit,
     val openNotificationSettings: () -> Unit,
 )
 
@@ -236,18 +238,11 @@ private fun Band(state: RunState, settings: Settings, flashPosition: Int?, annou
 private fun bandStatus(state: RunState, settings: Settings): String? =
     if (state.running && state.silenced) stringResource(R.string.status_paused_for_call) else rampStatus(state, settings)
 
-/** Where the ramp climbs from: the chosen cadence before a run, the rebased start during one. */
-private fun rampStart(state: RunState, settings: Settings): Int = when {
-    !state.running -> settings.bpm
-    settings.rampOn -> state.rampFrom
-    else -> state.currentBpm
-}
-
 /** Before a run, the plan; during one, where the climb has got to. */
 @Composable
 private fun rampStatus(state: RunState, settings: Settings): String? {
     if (!settings.rampOn) return null
-    val from = rampStart(state, settings)
+    val from = state.rampFrom
     if (!state.running) return stringResource(R.string.ramp_plan, from, settings.rampTo, settings.rampMinutes)
     return when (rampPhase(state.rampHeld, from, settings.rampTo, settings.rampMinutes, state.rampElapsedSeconds)) {
         RampPhase.Held -> stringResource(R.string.status_ramp_held_resume, state.currentBpm)
@@ -275,7 +270,7 @@ private fun rampView(state: RunState, settings: Settings): RampView {
     } else {
         -1
     }
-    return RampView(rampStart(state, settings), held, reached)
+    return RampView(state.rampFrom, held, reached)
 }
 
 /** Disabled controls fade as a group, labels and values included. */
@@ -420,10 +415,9 @@ private fun RampControls(settings: Settings, ramp: RampView, actions: ScreenActi
         onChange = actions.setRampOn,
     )
     if (!settings.rampOn) return
-    // Switching the ramp on again rebases it on the cadence now sounding, which is what resuming means.
     if (ramp.held) {
         OutlinedButton(
-            onClick = { actions.setRampOn(true) },
+            onClick = actions.resumeRamp,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             shape = MaterialTheme.shapes.medium,
         ) { Text(stringResource(R.string.ramp_resume)) }
@@ -537,20 +531,18 @@ private fun Cell(selected: Boolean, enabled: Boolean, onClick: () -> Unit, label
 @Composable
 private fun BeatModule(settings: Settings, canVibrate: Boolean, actions: ScreenActions) {
     Module(R.string.section_beat) {
-        val vibrateOn = settings.vibrate && canVibrate
-        val soundLocked = settings.click && !vibrateOn
-        val vibrateLocked = vibrateOn && !settings.click
+        val channels = settings.channels(canVibrate)
         SwitchRow(
             label = stringResource(R.string.beat_sound),
             hint = stringResource(
                 when {
-                    !soundLocked -> R.string.beat_sound_hint
+                    !channels.soundLocked -> R.string.beat_sound_hint
                     canVibrate -> R.string.beat_sound_locked
                     else -> R.string.beat_sound_no_vibrator
                 },
             ),
-            checked = settings.click,
-            enabled = !soundLocked,
+            checked = channels.sound,
+            enabled = !channels.soundLocked,
             onChange = actions.setClick,
         )
         CellGrid(
@@ -560,7 +552,7 @@ private fun BeatModule(settings: Settings, canVibrate: Boolean, actions: ScreenA
             onSelect = { actions.chooseVoice(VOICE_IDS[it]) },
             label = { stringResource(VOICE_LABELS[it].first) },
             sub = { null },
-            enabled = settings.click,
+            enabled = channels.sound,
         )
         Hint(stringResource(VOICE_LABELS[VOICE_IDS.indexOf(settings.voice).coerceAtLeast(0)].second))
         ValueSlider(
@@ -570,7 +562,7 @@ private fun BeatModule(settings: Settings, canVibrate: Boolean, actions: ScreenA
             range = 0..100,
             shown = settings.volume.toString(),
             spoken = stringResource(R.string.percent, settings.volume),
-            enabled = settings.click,
+            enabled = channels.sound,
             onChange = actions.setVolume,
         )
         SwitchRow(
@@ -578,12 +570,12 @@ private fun BeatModule(settings: Settings, canVibrate: Boolean, actions: ScreenA
             hint = stringResource(
                 when {
                     !canVibrate -> R.string.beat_no_vibrator
-                    vibrateLocked -> R.string.beat_vibrate_locked
+                    channels.vibrateLocked -> R.string.beat_vibrate_locked
                     else -> R.string.beat_vibrate_hint
                 },
             ),
-            checked = vibrateOn,
-            enabled = canVibrate && !vibrateLocked,
+            checked = channels.vibrate,
+            enabled = canVibrate && !channels.vibrateLocked,
             onChange = actions.setVibrate,
         )
     }
