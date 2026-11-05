@@ -487,13 +487,11 @@ private fun <T> CellGrid(
     ) {
         items.chunked(cols).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) HorizontalDivider(thickness = 1.dp, color = band.rule)
+            // A short last row stretches across the width: an empty cell reads as a missing option.
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                for (index in 0 until cols) {
+                row.forEachIndexed { index, item ->
                     if (index > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(band.rule))
-                    val item = row.getOrNull(index)
-                    Box(Modifier.weight(1f)) {
-                        if (item != null) Cell(selected(item), enabled, { onSelect(item) }, label(item), sub(item))
-                    }
+                    Box(Modifier.weight(1f)) { Cell(selected(item), enabled, { onSelect(item) }, label(item), sub(item)) }
                 }
             }
         }
